@@ -84,6 +84,13 @@ except ValueError as exc:
 # systemd unit, not the first.
 RUN_WORKER = _flag("RUN_WORKER", default=False)
 
+# True only when the app really is behind the load balancer. The rate limiter
+# keys on X-Forwarded-For when set, and on the socket peer when not. Getting it
+# wrong fails badly in both directions: on, when exposed directly, lets anyone
+# forge an identity per request and evade limiting entirely; off, when behind
+# nginx, puts every visitor in one bucket and throttles the whole site.
+TRUST_PROXY_HEADERS = _flag("TRUST_PROXY_HEADERS", default=False)
+
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "info").strip().upper()
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"

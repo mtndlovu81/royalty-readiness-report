@@ -6,6 +6,24 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Artist search folds accents: someone typing "bjork" or "sigur ros" on an
+-- ASCII keyboard must find "Björk" and "Sigur Rós". Plain ILIKE does not match
+-- across the accent, which silently hides the artist from their own profile.
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
+-- The one definition of "normalized". Used for the local artist lookup and as
+-- the search_cache key, so the two can never disagree. Doing this in Python
+-- instead would drift: unicodedata folds 'ö' but leaves 'ø', 'ß' and 'æ'
+-- untouched, while unaccent folds all four.
+--
+-- STABLE, not IMMUTABLE: unaccent depends on a dictionary that can be
+-- reloaded. That rules out indexing on it, which is fine at this scale.
+-- OR REPLACE so that --reset, which drops tables but not functions, can
+-- re-run this file cleanly.
+CREATE OR REPLACE FUNCTION r3_normalize(text) RETURNS text AS $$
+  SELECT lower(unaccent(btrim(regexp_replace($1, '\s+', ' ', 'g'))))
+$$ LANGUAGE sql STABLE;
+
 CREATE TABLE artists (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug            text UNIQUE NOT NULL,
@@ -13,6 +31,10 @@ CREATE TABLE artists (
   mbid            text UNIQUE,
   disambiguation  text,
   country         text,
+  type            text,
+    -- Person | Group | Orchestra | Choir | Character | Other | NULL
+    -- REQUIRED by can_hold_ipi(). NULL means unclassified upstream, which
+    -- correctly suppresses the IPI flag under "suppress on uncertainty".
   ipis            text[] NOT NULL DEFAULT '{}',
   status          text NOT NULL DEFAULT 'building',
     -- building | published | pending | failed
@@ -51,6 +73,11 @@ CREATE TABLE contributors (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   mbid            text UNIQUE,
   name            text NOT NULL,
+  type            text,
+    -- Same values as artists.type, and needed for the same reason: bands are
+    -- routinely credited as writers on their own works (the probe found
+    -- Radiohead credited as composer). Without this, every group-as-writer
+    -- produces a permanent, unfixable amber flag.
   ipis            text[] NOT NULL DEFAULT '{}',
   source          text NOT NULL DEFAULT 'musicbrainz',
   verified_at     timestamptz,
@@ -123,6 +150,17 @@ CREATE UNIQUE INDEX issues_spotify_unique
 CREATE UNIQUE INDEX issues_report_unique
   ON issues (entity_type, entity_id, field)
   WHERE type = 'data_report';
+
+-- Caches the upstream search fallback only; a local artist hit never touches
+-- it. Deliberately NOT the artists table: slugs are immutable once minted, so
+-- caching candidates there would burn /artist/nirvana on a row nobody builds,
+-- and status='pending' is a demand signal that orders the build queue.
+CREATE TABLE search_cache (
+  query      text PRIMARY KEY,
+  results    jsonb NOT NULL,
+  fetched_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX search_cache_fetched_idx ON search_cache (fetched_at);
 
 CREATE INDEX songs_artist_idx      ON songs (artist_id);
 CREATE INDEX versions_song_idx     ON versions (song_id);

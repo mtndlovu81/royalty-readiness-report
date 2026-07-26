@@ -29,6 +29,7 @@ TABLES = [
     "songs",
     "build_queue",
     "issues",
+    "search_cache",
     "contributors",
     "artists",
 ]
