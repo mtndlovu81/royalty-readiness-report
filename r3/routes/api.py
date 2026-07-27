@@ -7,10 +7,12 @@ is the worker's job, and it is what keeps the throttle invariant intact.
 """
 
 import logging
+import re
 import uuid
 from typing import Any
+from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Form, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from psycopg.types.json import Jsonb
 
@@ -287,6 +289,201 @@ def pending_status(request_id: str) -> dict[str, Any]:
     if status is None:
         raise HTTPException(status_code=404, detail="No such request")
     return status
+
+
+# --- requests and reports -------------------------------------------------
+#
+# Both write to one `issues` table with a type discriminator. They differ by
+# payload, not by machinery — same triage, same rate limiting, same dedup.
+#
+# A request is not a claim of ownership, and a report is not a correction:
+# anyone can type any name. Nothing here changes what the site displays.
+
+SPOTIFY_ARTIST_ID = re.compile(r"^[A-Za-z0-9]{22}$")
+
+# Named so the message can say what they actually pasted. "Invalid URL" sends
+# someone back to the same mistake; "that's an album link" doesn't.
+SPOTIFY_WRONG_KIND = {
+    "track": "That's a link to a track. Open the artist's own page on Spotify and copy that link instead.",
+    "album": "That's a link to an album. Open the artist's own page on Spotify and copy that link instead.",
+    "playlist": "That's a link to a playlist. Open the artist's own page on Spotify and copy that link instead.",
+    "episode": "That's a link to a podcast episode, not an artist.",
+    "show": "That's a link to a podcast, not an artist.",
+    "user": "That's a link to a listener's profile, not an artist.",
+    "search": "That's a search results link. Open the artist's page itself and copy that link.",
+}
+
+# Field names a report may be filed against — whitelisted, because this value
+# is stored and later used to route triage.
+REPORTABLE_FIELDS = {
+    "publishing_id", "streaming_id", "versions", "contributors",
+    "title", "artist", "other",
+}
+
+REPORTABLE_ENTITIES = {"song", "version", "contributor", "artist"}
+
+MAX_FREETEXT = 2000
+
+
+def parse_spotify_artist_id(url: str) -> tuple[str | None, str | None]:
+    """Pull the artist id out of a Spotify link. Returns (id, error message).
+
+    Accepts the share URL and the `spotify:artist:…` URI. Rejects every other
+    kind of Spotify link by name, because people paste track and album links
+    constantly and a generic rejection teaches them nothing.
+    """
+    raw = (url or "").strip()
+    if not raw:
+        return None, "Paste a link to the artist's Spotify page."
+
+    uri = raw.removeprefix("spotify:")
+    if uri.startswith("artist:"):
+        candidate = uri.removeprefix("artist:").split("?")[0]
+        if SPOTIFY_ARTIST_ID.match(candidate):
+            return candidate, None
+        return None, "That doesn't look like a Spotify artist link."
+
+    parsed = urlparse(raw if "//" in raw else f"https://{raw}")
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    if host not in {"open.spotify.com", "play.spotify.com", "spotify.com"}:
+        return None, "That isn't a Spotify link. Paste the artist's Spotify page."
+
+    # /artist/{id}, or /intl-de/artist/{id} on localised share links.
+    parts = [p for p in parsed.path.split("/") if p]
+    if parts and parts[0].startswith("intl-"):
+        parts = parts[1:]
+
+    if not parts:
+        return None, "That link doesn't point at anything. Open the artist's page and copy the link."
+
+    kind = parts[0].lower()
+    if kind != "artist":
+        return None, SPOTIFY_WRONG_KIND.get(
+            kind, "That's not a link to an artist page on Spotify."
+        )
+
+    if len(parts) < 2 or not SPOTIFY_ARTIST_ID.match(parts[1]):
+        return None, "That artist link looks incomplete. Copy it again from Spotify."
+
+    return parts[1], None
+
+
+def record_artist_request(name: str, spotify_url: str) -> tuple[str | None, str | None]:
+    """File a request for an artist we can't build. Returns (issue id, error).
+
+    Deduplicated on the Spotify artist id: names are hopeless for this and
+    links are exact. A repeat request increments `request_count` instead of
+    inserting, and that counter is what orders the build queue — so the
+    most-wanted artists get built first, for free.
+    """
+    name = (name or "").strip()[:200]
+    if not name:
+        return None, "Tell us the artist's name."
+
+    spotify_id, error = parse_spotify_artist_id(spotify_url)
+    if error:
+        return None, error
+
+    row = db.query_one(
+        """
+        INSERT INTO issues (type, requested_name, spotify_artist_id)
+        VALUES ('artist_request', %s, %s)
+        ON CONFLICT (spotify_artist_id)
+          WHERE type = 'artist_request' AND spotify_artist_id IS NOT NULL
+          DO UPDATE SET request_count = issues.request_count + 1,
+                        updated_at = now()
+        RETURNING id, request_count
+        """,
+        (name, spotify_id),
+    )
+    log.info("artist request %s (count now %s)", spotify_id, row["request_count"])
+    return str(row["id"]), None
+
+
+def record_data_report(
+    entity_type: str,
+    entity_id: str,
+    field: str,
+    user_says: str,
+    suggested_value: str | None = None,
+) -> tuple[bool, str | None]:
+    """File a report against one field. Returns (accepted, error).
+
+    Field-level rather than free-text: a report arrives as entity + field +
+    what they say, which is actionable in seconds. A general "this profile is
+    wrong" box produces "the third song is wrong", which nobody can act on.
+    """
+    if entity_type not in REPORTABLE_ENTITIES:
+        return False, "We can't take a report on that."
+    if field not in REPORTABLE_FIELDS:
+        return False, "We can't take a report on that field."
+
+    user_says = (user_says or "").strip()[:MAX_FREETEXT]
+    if not user_says:
+        return False, "Tell us what's wrong so we know what to look at."
+
+    try:
+        uuid.UUID(entity_id)
+    except (ValueError, TypeError):
+        return False, "We couldn't tell which item that report is about."
+
+    db.execute(
+        """
+        INSERT INTO issues (type, entity_type, entity_id, field, user_says,
+                            suggested_value)
+        VALUES ('data_report', %s, %s, %s, %s, %s)
+        ON CONFLICT (entity_type, entity_id, field)
+          WHERE type = 'data_report'
+          DO UPDATE SET request_count = issues.request_count + 1,
+                        updated_at = now(),
+                        -- Keep the first correction offered; a later blank must
+                        -- not erase it.
+                        suggested_value = COALESCE(EXCLUDED.suggested_value,
+                                                   issues.suggested_value)
+        """,
+        (entity_type, entity_id, field, user_says,
+         (suggested_value or "").strip()[:MAX_FREETEXT] or None),
+    )
+    return True, None
+
+
+@router.post("/api/request-artist")
+def api_request_artist(
+    name: str = Form(...),
+    spotify_url: str = Form(...),
+    website: str = Form(default=""),
+) -> dict[str, Any]:
+    """JSON form of the request. `website` is the honeypot."""
+    if website:
+        # Accept and discard. Telling a bot it failed only helps it retry.
+        log.info("honeypot tripped on artist request")
+        return {"ok": True}
+
+    issue_id, error = record_artist_request(name, spotify_url)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return {"ok": True, "request_id": issue_id}
+
+
+@router.post("/api/report")
+def api_report(
+    entity_type: str = Form(...),
+    entity_id: str = Form(...),
+    field: str = Form(...),
+    user_says: str = Form(...),
+    suggested_value: str = Form(default=""),
+    website: str = Form(default=""),
+) -> dict[str, Any]:
+    if website:
+        log.info("honeypot tripped on data report")
+        return {"ok": True}
+
+    accepted, error = record_data_report(
+        entity_type, entity_id, field, user_says, suggested_value
+    )
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return {"ok": accepted}
 
 
 @router.get("/health", response_class=PlainTextResponse)

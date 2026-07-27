@@ -59,6 +59,59 @@
           </div>
         {% endif %}
 
+        {% if anchors | default(false) %}
+          {#
+            Field-level, sitting next to the line it's about, so a report
+            arrives as entity + field + what they say — actionable in seconds.
+            A general "this profile is wrong" box produces "the third song is
+            wrong", which nobody can act on.
+
+            Rendered only where anchors are (the song page): on the profile
+            this would be four forms per row and hundreds per page, and the
+            permalink already leads here.
+          #}
+          <details class="report">
+            <summary>Something not right?</summary>
+            <form action="/report" method="post" class="report-form">
+              <input type="hidden" name="entity_type" value="song">
+              <input type="hidden" name="entity_id" value="{{ song.id }}">
+              <input type="hidden" name="field" value="{{ check.key }}">
+              <input type="hidden" name="return_to"
+                     value="/artist/{{ artist.slug }}/{{ song.slug }}">
+
+              <div class="field">
+                <label for="says-{{ check.key }}">What's wrong?</label>
+                <textarea class="search-input" id="says-{{ check.key }}"
+                          name="user_says" rows="2" maxlength="2000" required
+                          placeholder="e.g. this is registered, the ID just isn't listed here"></textarea>
+              </div>
+
+              <div class="field">
+                <label for="fix-{{ check.key }}">What should it be? (optional)</label>
+                <input class="search-input" type="text" id="fix-{{ check.key }}"
+                       name="suggested_value" maxlength="2000"
+                       placeholder="Leave blank if you're not sure">
+                <p class="field-hint">
+                  Asking for the correction turns a complaint into a
+                  contribution — but a report on its own is still useful.
+                </p>
+              </div>
+
+              <div class="honeypot" aria-hidden="true">
+                <label for="hp-{{ check.key }}">Website</label>
+                <input type="text" id="hp-{{ check.key }}" name="website"
+                       tabindex="-1" autocomplete="off">
+              </div>
+
+              <button class="btn btn-quiet" type="submit">Send report</button>
+              <p class="field-hint">
+                Reports go to our queue for a human to look at. They don't
+                change what's shown here.
+              </p>
+            </form>
+          </details>
+        {% endif %}
+
         {% if check.key == "versions" %}
           {# Say what each version has, not only what it's missing. #}
           <ul class="version-list">

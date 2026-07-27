@@ -505,6 +505,68 @@ tr[hidden] { display: none !important; }
   padding-left: 0.6rem;
 }
 
+/* --- forms -------------------------------------------------------------- */
+
+.request-form {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.request-form h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+.request-lede { color: var(--text-dim); font-size: 0.92rem; margin: 0 0 1rem; }
+
+.field { margin-bottom: 1rem; max-width: 30rem; }
+.field label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+.field .search-input { width: 100%; }
+.field textarea.search-input { resize: vertical; font: inherit; }
+
+.field-hint { color: var(--text-muted); font-size: 0.82rem; margin: 0.35rem 0 0; }
+
+.form-error {
+  color: var(--crit);
+  background: var(--surface-2);
+  border-left: 3px solid var(--crit);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 1rem;
+  max-width: 40rem;
+}
+
+/* Off-screen rather than display:none — some bots skip hidden inputs, and
+ * this needs to look fillable to them and be unreachable to everyone else. */
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.report { margin-top: 0.9rem; }
+.report > summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+}
+.report > summary:hover { color: var(--accent); }
+.report-form { margin-top: 0.8rem; }
+
+.request-link {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  overflow-wrap: anywhere;
+}
+
 /* --- status ------------------------------------------------------------- */
 
 .status { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }

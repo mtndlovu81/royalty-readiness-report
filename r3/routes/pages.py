@@ -18,7 +18,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from r3 import db, diagnostics
-from r3.routes.api import MAX_QUERY_LENGTH, build_status, run_search
+from r3.routes.api import (
+    MAX_QUERY_LENGTH,
+    build_status,
+    record_artist_request,
+    record_data_report,
+    run_search,
+)
 
 log = logging.getLogger(__name__)
 
@@ -405,3 +411,93 @@ def song_page(request: Request, slug: str, song_slug: str):
     return templates.TemplateResponse(
         request, "song.html", {"artist": profile["artist"], "song": song}
     )
+
+
+@router.post("/artist/request", response_class=HTMLResponse)
+def request_artist(
+    request: Request,
+    name: str = Form(default=""),
+    spotify_url: str = Form(default=""),
+    website: str = Form(default=""),
+):
+    """Ask us to add an artist we can't build automatically.
+
+    Requesting is not claiming. Anyone can type any name; the row is a request
+    and nothing more. Ownership arrives in v2 behind Spotify for Artists, where
+    they already have to prove it.
+    """
+    if website:
+        # Honeypot. Look successful and write nothing — telling a bot it was
+        # caught only tells it what to change.
+        return templates.TemplateResponse(request, "requested.html", {"issue_id": None})
+
+    issue_id, error = record_artist_request(name, spotify_url)
+    if error:
+        return templates.TemplateResponse(
+            request,
+            "search.html",
+            {
+                "query": name,
+                "results": [],
+                "source": "unavailable" if not name else "musicbrainz",
+                "request_error": error,
+                "request_name": name,
+                "request_spotify_url": spotify_url,
+            },
+            status_code=400,
+        )
+
+    return templates.TemplateResponse(request, "requested.html", {"issue_id": issue_id})
+
+
+@router.get("/requested/{issue_id}", response_class=HTMLResponse)
+def requested(request: Request, issue_id: str):
+    """Private status link for a requested artist. Never indexed."""
+    try:
+        uuid.UUID(issue_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="No such request") from None
+
+    issue = db.query_one(
+        """
+        SELECT id, requested_name, status, request_count
+          FROM issues WHERE id = %s AND type = 'artist_request'
+        """,
+        (issue_id,),
+    )
+    if issue is None:
+        raise HTTPException(status_code=404, detail="No such request")
+
+    return templates.TemplateResponse(
+        request, "requested.html", {"issue_id": issue_id, "issue": issue}
+    )
+
+
+@router.post("/report", response_class=HTMLResponse)
+def report(
+    request: Request,
+    entity_type: str = Form(default="song"),
+    entity_id: str = Form(default=""),
+    field: str = Form(default=""),
+    user_says: str = Form(default=""),
+    suggested_value: str = Form(default=""),
+    return_to: str = Form(default="/"),
+    website: str = Form(default=""),
+):
+    """Report a field as wrong. A claim, not a correction — it changes nothing
+    on the page, it goes in the queue.
+    """
+    # Only ever bounce back inside this site: an open redirect here would let
+    # someone send a victim anywhere from a URL that looks like ours.
+    if not return_to.startswith("/") or return_to.startswith("//"):
+        return_to = "/"
+
+    if website:
+        return RedirectResponse(f"{return_to}?reported=1", status_code=303)
+
+    accepted, error = record_data_report(
+        entity_type, entity_id, field, user_says, suggested_value
+    )
+    if error:
+        return RedirectResponse(f"{return_to}?report_error=1", status_code=303)
+    return RedirectResponse(f"{return_to}?reported=1", status_code=303)

@@ -49,6 +49,11 @@ RULES: tuple[tuple[str, str | None, Rule], ...] = (
     ("/artist/build", "POST", WRITE),
     ("/api/request-artist", "POST", WRITE),
     ("/api/report", "POST", WRITE),
+    # The HTML forms reach the same tables as the JSON routes above, so they
+    # need the same ceiling. Limiting only the API would leave the forms —
+    # which is what an actual abuser would target — wide open.
+    ("/artist/request", "POST", WRITE),
+    ("/report", "POST", WRITE),
 )
 
 # The load balancer polls this constantly and must never be throttled.

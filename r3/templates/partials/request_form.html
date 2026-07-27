@@ -1,0 +1,48 @@
+{#
+  "Add this artist" — the most valuable moment in the funnel, not a dead end.
+
+  Deduplicated on the Spotify link rather than the name, because names are
+  hopeless for this and links are exact.
+#}
+<form class="request-form" action="/artist/request" method="post">
+  <h3>Can't find them? Ask us to add them</h3>
+  <p class="request-lede">
+    We'll look them up by hand. Nothing here claims the artist — it's a request,
+    and anyone can make one.
+  </p>
+
+  {% if request_error %}
+    <p class="form-error" role="alert">{{ request_error }}</p>
+  {% endif %}
+
+  <div class="field">
+    <label for="req-name">Artist name</label>
+    <input class="search-input" type="text" id="req-name" name="name"
+           value="{{ request_name | default(query) | default('') }}"
+           maxlength="200" required>
+  </div>
+
+  <div class="field">
+    <label for="req-spotify">Their Spotify page</label>
+    <input class="search-input" type="url" id="req-spotify" name="spotify_url"
+           value="{{ request_spotify_url | default('') }}"
+           placeholder="https://open.spotify.com/artist/…"
+           maxlength="500" required>
+    <p class="field-hint">
+      Open the artist's page on Spotify and copy the link. This is how we tell
+      two artists with the same name apart.
+    </p>
+  </div>
+
+  {#
+    Honeypot. Real people never see it, so anything filled in came from a bot.
+    Named `website` because that is what form-filling scripts look for, and
+    left out of the tab order so a keyboard user never lands on it.
+  #}
+  <div class="honeypot" aria-hidden="true">
+    <label for="req-website">Website</label>
+    <input type="text" id="req-website" name="website" tabindex="-1" autocomplete="off">
+  </div>
+
+  <button class="btn" type="submit">Request this artist</button>
+</form>

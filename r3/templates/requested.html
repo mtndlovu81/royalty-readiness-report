@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Request received — Royalty Readiness Report{% endblock %}
+{# Private link. Pending profiles are never indexed, or we accumulate thousands
+   of hollow pages. #}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block back %}<a class="back-link" href="/">← New search</a>{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <h1>We've got your request</h1>
+
+  <p class="lede">
+    {% if issue and issue.requested_name %}
+      We'll put together a report for {{ issue.requested_name }}.
+    {% else %}
+      We'll put together a report for them.
+    {% endif %}
+    Profiles like this one are built by hand at the moment, so it takes a few
+    days rather than a few seconds.
+  </p>
+
+  {% if issue_id %}
+    <p>
+      Check back at this link — the report will be here when it's ready:
+    </p>
+    <p class="mono request-link">/requested/{{ issue_id }}</p>
+    <p class="unverified">
+      Worth bookmarking. We don't send email yet, so this link is the only way
+      back to it.
+    </p>
+  {% else %}
+    <p>Thanks — we'll take a look.</p>
+  {% endif %}
+
+  {% if issue and issue.request_count and issue.request_count > 1 %}
+    <p class="unverified">
+      {{ issue.request_count }} people have asked for this one. The
+      most-requested artists get built first.
+    </p>
+  {% endif %}
+
+  <p><a href="/">Look up someone else</a></p>
+</div>
+{% endblock %}

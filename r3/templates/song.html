@@ -23,6 +23,21 @@
   </p>
 </header>
 
+{% if request.query_params.get("reported") %}
+  <div class="notice" role="status">
+    <h2>Thanks — that's in the queue</h2>
+    <p>
+      A person will look at it. Nothing on this page changes in the meantime:
+      what we show is still what our sources say.
+    </p>
+  </div>
+{% elif request.query_params.get("report_error") %}
+  <div class="notice notice-warn" role="alert">
+    <h2>We couldn't file that report</h2>
+    <p>Tell us what's wrong in the box and send it again.</p>
+  </div>
+{% endif %}
+
 <section class="song-report">
   {# Same partial the profile row uses, so a song can never read one way in the
      table and another on its own page. Anchors are on here: this is the URL
