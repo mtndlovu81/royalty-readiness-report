@@ -89,6 +89,18 @@ class MalformedResponse(MusicBrainzError):
 _gate_lock = threading.Lock()
 _next_allowed_at = 0.0
 
+# Every HTTP request made, retries included. The build pipeline's cost is the
+# whole reason for the release-first design, so it needs to be measurable.
+request_count = 0
+
+
+def reset_request_count() -> int:
+    """Zero the counter and return what it held."""
+    global request_count
+    previous = request_count
+    request_count = 0
+    return previous
+
 _client: httpx.Client | None = None
 _client_lock = threading.Lock()
 
@@ -162,12 +174,15 @@ def get(path: str, **params: Any) -> dict[str, Any]:
     query = _encode(params)
     url = path.lstrip("/")
 
+    global request_count
+
     attempt = 0
     timeouts = 0
 
     while True:
         attempt += 1
         _wait_turn()
+        request_count += 1
 
         try:
             response = _client_instance().get(url, params=query)
