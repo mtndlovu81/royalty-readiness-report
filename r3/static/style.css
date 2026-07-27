@@ -323,6 +323,76 @@ a.result:hover { border-color: var(--accent); background: var(--surface-2); }
 
 .artist-diagnostics { margin-bottom: 2rem; }
 
+/* --- controls ----------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  gap: var(--gap);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.control { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.control label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* `.control` stacks its label above its field, so it is a COLUMN flex
+ * container — which means flex-basis sizes the height, not the width. The
+ * hero's `flex: 1 1 18rem` inherited here made this input 18rem tall. Size it
+ * explicitly and keep flex out of it. */
+.control .search-input {
+  flex: none;
+  width: 22rem;
+  max-width: 100%;
+  /* Reads as a search field rather than a bare box: magnifier on the left,
+   * inline so there is still no external asset to fetch. */
+  padding-left: 2.4rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.8rem center;
+  background-size: 16px 16px;
+  appearance: none;
+}
+
+.control .search-input:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233B82F6' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.6-3.6'/%3E%3C/svg%3E");
+}
+
+/* Safari draws its own control here and ignores the padding otherwise. */
+.control .search-input::-webkit-search-decoration { appearance: none; }
+
+.controls select {
+  flex: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  /* Matches the input's box so the two controls line up on the same baseline. */
+  padding: 0.7rem 2rem 0.7rem 0.9rem;
+  line-height: 1.55;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239BA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 14px 14px;
+}
+.controls select:hover { border-color: var(--text-muted); }
+
+.filter-status {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  min-height: 1.4em;
+  margin: 0 0 0.5rem;
+}
+
 /* --- song table --------------------------------------------------------- */
 
 .songs {
@@ -350,6 +420,11 @@ a.result:hover { border-color: var(--accent); background: var(--surface-2); }
   border-bottom: 1px solid var(--border);
   vertical-align: baseline;
 }
+
+/* The filter hides rows with the `hidden` attribute. Table rows carry a
+ * `display: table-row` from the UA stylesheet at the same specificity as
+ * `[hidden]`, so state it explicitly rather than relying on cascade order. */
+tr[hidden] { display: none !important; }
 
 .song-row { cursor: pointer; }
 .song-row:hover { background: var(--surface); }
@@ -395,9 +470,12 @@ a.result:hover { border-color: var(--accent); background: var(--surface-2); }
 .status { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
 .status-glyph { flex: none; }
 
-.status-red   { color: var(--crit); }
-.status-amber { color: var(--warn); }
-.status-green { color: var(--ok); }
+.status-red     { color: var(--crit); }
+.status-amber   { color: var(--warn); }
+.status-green   { color: var(--ok); }
+/* Deliberately the muted grey used for "Not on record" elsewhere — it reads as
+ * absent data, not as a fourth verdict. */
+.status-neutral { color: var(--text-muted); }
 
 .status-label { font-size: 0.85rem; }
 
@@ -431,20 +509,78 @@ a.result:hover { border-color: var(--accent); background: var(--surface-2); }
   font-size: 0.92rem;
 }
 
-.all-clear { color: var(--text-dim); margin: 0 0 1rem; max-width: 62ch; }
+/* --- checks: summary strip, then the breakdown -------------------------- */
 
-.credits, .versions { margin-top: 1.1rem; }
-.credits h3, .versions h3 {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin-bottom: 0.4rem;
+.check-summary {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--border);
 }
 
+.check-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem 0.2rem 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.check-chip .status-glyph { width: 15px; height: 15px; }
+.chip-label { color: var(--text); }
+
+.checks { list-style: none; margin: 0; padding: 0; }
+
+.check { display: flex; gap: 0.75rem; padding-block: 0.85rem; }
+.check + .check { border-top: 1px solid var(--border); }
+
+.check-icon { flex: none; padding-top: 0.15rem; }
+.check-body { min-width: 0; flex: 1 1 auto; }
+
+.check-head {
+  margin: 0 0 0.3rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.check-label {
+  font-weight: 600;
+  min-width: 8.5rem;
+}
+
+/* The finding itself — an identifier, a count, or "Not on record". */
+.check-value { color: var(--text-dim); }
+.check-green .check-value { color: var(--text); }
+.check-red .check-value,
+.check-amber .check-value { color: var(--text-dim); }
+
+.check-explanation {
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 62ch;
+  font-size: 0.92rem;
+}
+
+.credits { margin-top: 0.7rem; }
 .credit-line { margin: 0 0 0.3rem; }
 .credit-role { color: var(--text-muted); display: inline-block; min-width: 6rem; }
 .credit-name { color: var(--text); }
+
+/* Green states get a quieter treatment than amber ones: confirming something
+ * is fine should never shout as loudly as flagging something that isn't. */
+.credit-ok {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-left: 0.2rem;
+}
 
 /* Amber, because it is an amber finding — the same fact the row's flag makes,
  * shown where the name is. */
@@ -457,17 +593,23 @@ a.result:hover { border-color: var(--accent); background: var(--surface-2); }
   margin-left: 0.2rem;
 }
 
-.version-list { list-style: none; margin: 0; padding: 0; }
+.version-list {
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0.5rem 0 0;
+  border-top: 1px solid var(--border);
+}
 .version {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
   padding-block: 0.35rem;
 }
 .version + .version { border-top: 1px solid var(--border); }
-.version-name { flex: 1 1 16rem; min-width: 0; }
-.version-id { flex: 0 0 auto; }
+.version-status { flex: none; display: inline-flex; }
+.version-name { flex: 1 1 14rem; min-width: 0; }
+.version-id { flex: 0 0 auto; font-size: 0.9rem; }
 
 /* --- secondary catalogue ------------------------------------------------ */
 

@@ -50,6 +50,36 @@
 {% endif %}
 
 {% if primary_songs %}
+  {#
+    Filter narrows what is rendered, client-side, with no request. Sort is
+    applied server-side too, so the control works with JavaScript off and a
+    sorted URL survives being shared.
+  #}
+  <form class="controls" method="get" action="" id="controls">
+    <div class="control">
+      <label for="filter">Filter songs</label>
+      <input class="search-input" type="search" id="filter" name="filter"
+             placeholder="Song or contributor…" autocomplete="off"
+             maxlength="120">
+    </div>
+
+    <div class="control">
+      <label for="sort">Sort</label>
+      <select id="sort" name="sort">
+        {% for key, option in sorts.items() %}
+          <option value="{{ key }}" {% if key == sort %}selected{% endif %}>
+            {{ option.label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {# Hidden by the script, which sorts without a round trip. #}
+    <button class="btn btn-quiet" type="submit" id="controls-submit">Apply</button>
+  </form>
+
+  <p class="filter-status" id="filter-status" role="status" aria-live="polite"></p>
+
   <table class="songs">
     <caption class="visually-hidden">
       Songs by {{ artist.name }}, with the identifiers found for each.

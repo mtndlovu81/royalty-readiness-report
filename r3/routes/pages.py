@@ -28,6 +28,11 @@ TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 # from MusicBrainz is ever marked safe.
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
+# Status wording lives in diagnostics.py with the rest of the copy, so the
+# labels can't drift from the rules they describe.
+templates.env.globals["STATUS_LABELS"] = diagnostics.STATUS_LABELS
+templates.env.globals["CHECK_LABELS"] = diagnostics.CHECK_LABELS
+
 
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -58,8 +63,52 @@ def search(request: Request, q: str = Query(default="", max_length=MAX_QUERY_LEN
 # The roles we surface, in the order a credit list reads.
 ROLE_ORDER = ["composer", "lyricist", "writer", "producer"]
 
+# Worst first is the default on purpose (DESIGN.md §5): a diagnostic tool opens
+# on the problems. If healthy songs fill the first screen, people assume
+# everything is fine and leave.
+SEVERITY_RANK = {"red": 0, "amber": 1, "green": 2}
 
-def load_profile(slug: str) -> dict[str, Any] | None:
+# Whitelisted against a fixed set — the parameter selects a key from this dict
+# and nothing else. Sorting happens in Python over rows already loaded, so no
+# user input reaches SQL at all.
+SORTS: dict[str, dict[str, Any]] = {
+    "worst": {
+        "label": "Worst first",
+        "key": lambda s: (SEVERITY_RANK.get(s["severity"], 3), s["title"].lower()),
+    },
+    "title": {
+        "label": "Song title",
+        "key": lambda s: (s["title"].lower(),),
+    },
+    "newest": {
+        "label": "Newest first",
+        # Undated songs sort last either way rather than pretending to be old.
+        "key": lambda s: (
+            0 if (s["primary_version"] or {}).get("first_released") else 1,
+            _released_sort_value(s),
+            s["title"].lower(),
+        ),
+    },
+}
+
+DEFAULT_SORT = "worst"
+
+
+def _released_sort_value(song: dict[str, Any]):
+    """Negated date for newest-first, as a sortable tuple."""
+    version = song.get("primary_version") or {}
+    released = version.get("first_released")
+    if released is None:
+        return (0, 0, 0)
+    return (-released.year, -released.month, -released.day)
+
+
+def resolve_sort(requested: str | None) -> str:
+    """Whitelist. Anything unrecognised falls back to the default."""
+    return requested if requested in SORTS else DEFAULT_SORT
+
+
+def load_profile(slug: str, sort: str = DEFAULT_SORT) -> dict[str, Any] | None:
     """Assemble one artist's profile. Postgres only — never calls upstream.
 
     Four queries regardless of catalogue size: artist, songs, versions,
@@ -123,6 +172,8 @@ def load_profile(slug: str) -> dict[str, Any] | None:
         song["contributors"] = by_song_credits.get(song["id"], [])
         song["flags"] = diagnostics.evaluate_song(song, shape)
         song["severity"] = diagnostics.worst_severity(song["flags"])
+        # Every category, found or not — what the expanded row renders.
+        song["checks"] = diagnostics.song_checks(song, shape)
         song["primary_version"] = next(
             (v for v in song["versions"] if v["is_primary"]),
             song["versions"][0] if song["versions"] else None,
@@ -137,13 +188,23 @@ def load_profile(slug: str) -> dict[str, Any] | None:
             if role in grouped
         ]
 
+    sort = resolve_sort(sort)
+    order = SORTS[sort]["key"]
+
     return {
         "artist": artist,
         "shape": shape,
         "artist_flags": diagnostics.evaluate_artist(artist, shape),
         "headline": diagnostics.headline(songs, shape),
-        "primary_songs": [s for s in songs if s["is_primary_catalogue"]],
-        "secondary_songs": [s for s in songs if not s["is_primary_catalogue"]],
+        "primary_songs": sorted(
+            (s for s in songs if s["is_primary_catalogue"]), key=order
+        ),
+        "secondary_songs": sorted(
+            (s for s in songs if not s["is_primary_catalogue"]), key=order
+        ),
+        "sort": sort,
+        "sorts": SORTS,
+        "severity_rank": SEVERITY_RANK,
     }
 
 
@@ -228,9 +289,13 @@ def pending(request: Request, request_id: str):
 
 
 @router.get("/artist/{slug}", response_class=HTMLResponse)
-def artist_profile(request: Request, slug: str):
-    """The core of the product. Postgres only."""
-    profile = load_profile(slug)
+def artist_profile(request: Request, slug: str, sort: str = Query(default=DEFAULT_SORT)):
+    """The core of the product. Postgres only.
+
+    `sort` is whitelisted and also applied server-side, so the control works
+    without JavaScript and a sorted URL can be shared.
+    """
+    profile = load_profile(slug, sort)
     if profile is None:
         raise HTTPException(status_code=404, detail="No profile for that name")
 

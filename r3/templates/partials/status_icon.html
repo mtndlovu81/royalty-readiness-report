@@ -8,8 +8,18 @@
 
   Params: severity ("red"|"amber"|"green"), verified (bool), label (bool)
 #}
-{% set shapes = {"red": "circle-x", "amber": "alert-triangle", "green": "circle-check"} %}
-{% set labels = {"red": "Needs attention", "amber": "Worth checking", "green": "Complete"} %}
+{#
+  Two label sets (diagnostics.STATUS_LABELS / CHECK_LABELS): the visible row
+  status answers "what's the state of this song?", while a category icon
+  answers "what's the state of this check?" and has to read after its label —
+  "Publishing ID: not found". One set cannot do both without sounding wrong in
+  one of the two places.
+#}
+{% if check_labels | default(false) %}
+  {% set labels = CHECK_LABELS %}
+{% else %}
+  {% set labels = STATUS_LABELS %}
+{% endif %}
 {% set solid = verified | default(false) %}
 
 <span class="status status-{{ severity }}{{ ' is-verified' if solid else '' }}">
@@ -18,7 +28,11 @@
        fill="{{ 'currentColor' if solid else 'none' }}"
        stroke="currentColor" stroke-width="2"
        stroke-linecap="round" stroke-linejoin="round">
-    {% if severity == "amber" %}
+    {% if severity == "neutral" %}
+      {# A dashed ring: visibly not a verdict, and distinguishable from the
+         other three by shape alone in greyscale. #}
+      <circle cx="12" cy="12" r="9" stroke-dasharray="3 3" fill="none"/>
+    {% elif severity == "amber" %}
       <path d="M12 3.5 22 20H2z"/>
       <path d="M12 10v4" stroke="{{ 'var(--bg)' if solid else 'currentColor' }}"/>
       <path d="M12 17.5h.01" stroke="{{ 'var(--bg)' if solid else 'currentColor' }}"/>

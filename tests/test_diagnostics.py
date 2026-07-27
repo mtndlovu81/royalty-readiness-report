@@ -245,6 +245,137 @@ def test_everything_present_produces_no_flags():
     assert d.worst_severity(flags) == d.GREEN
 
 
+# --- checks: every category, found or not ---------------------------------
+
+
+def keys(checks):
+    return [c.key for c in checks]
+
+
+def by_key(checks, key):
+    return next(c for c in checks if c.key == key)
+
+
+def test_clean_song_still_reports_every_category():
+    """The point of checks: a green line means "we looked", not silence."""
+    checks = d.song_checks(
+        song(contributors=[{"name": "A Writer", "type": "Person", "ipis": ["00055405100"]}])
+    )
+    assert keys(checks) == ["publishing_id", "streaming_id", "contributors"]
+    assert all(c.severity == d.GREEN for c in checks)
+
+
+def test_categories_are_stable_between_clean_and_broken_songs():
+    """Same order every time, so the panel can be learned once and scanned."""
+    clean = d.song_checks(song(contributors=[{"name": "W", "type": "Person", "ipis": ["1"]}]))
+    broken = d.song_checks(song(iswc=None,
+                                versions=[{"title": "x", "isrc": None, "is_primary": True}],
+                                contributors=[{"name": "W", "type": "Person", "ipis": []}]))
+    assert keys(clean) == keys(broken)
+
+
+def test_found_values_are_shown_not_just_absences():
+    checks = d.song_checks(song())
+    assert by_key(checks, "publishing_id").summary == "T-123.456.789-0"
+    assert by_key(checks, "streaming_id").summary == "GBAYE0000001"
+
+
+def test_found_copy_never_claims_the_registration_is_correct():
+    """Green means "found", never "correct" — the mirror of the §2 rule."""
+    for text in d.FOUND_COPY.values():
+        lowered = text.lower()
+        assert "doesn't confirm" in lowered or "doesn't guarantee" in lowered \
+            or "so " in lowered, text
+    publishing = d.FOUND_COPY["publishing_id"].lower()
+    assert "doesn't confirm" in publishing
+    assert "splits" in publishing
+
+
+def test_no_composition_record_collapses_the_publishing_category():
+    checks = d.song_checks(song(work_mbid=None, iswc=None))
+    publishing = by_key(checks, "publishing_id")
+    assert publishing.severity == d.RED
+    assert publishing.summary == "No composition record"
+    # Contributors are unknowable without a composition record, so the category
+    # is dropped rather than shown as a second failure for the same absence.
+    assert "contributors" not in keys(checks)
+
+
+def test_versions_category_only_appears_for_multi_version_songs():
+    single = d.song_checks(song())
+    assert "versions" not in keys(single)
+
+    multi = d.song_checks(song(versions=[
+        {"title": "a", "isrc": "GBAYE0000001", "is_primary": True},
+        {"title": "b", "isrc": None, "is_primary": False},
+    ]))
+    versions = by_key(multi, "versions")
+    assert versions.severity == d.AMBER
+    assert versions.summary == "1 of 2 versions have a streaming ID"
+
+
+def test_all_versions_present_reads_as_found():
+    checks = d.song_checks(song(versions=[
+        {"title": "a", "isrc": "GBAYE0000001", "is_primary": True},
+        {"title": "b", "isrc": "GBAYE0000002", "is_primary": False},
+    ]))
+    versions = by_key(checks, "versions")
+    assert versions.severity == d.GREEN
+    assert versions.summary == "All 2 versions have a streaming ID"
+
+
+def test_writer_shape_drops_recording_categories_entirely():
+    checks = d.song_checks(song(), d.WRITER)
+    assert keys(checks) == ["publishing_id", "contributors"]
+
+
+def test_group_contributor_does_not_make_the_category_amber():
+    """A band credited as writer has no IPI, correctly — same rule as the flag."""
+    checks = d.song_checks(
+        song(contributors=[{"name": "Radiohead", "type": "Group", "ipis": []}])
+    )
+    assert by_key(checks, "contributors").severity == d.GREEN
+
+
+def test_missing_contributor_ipi_is_amber_with_a_count():
+    checks = d.song_checks(song(contributors=[
+        {"name": "A", "type": "Person", "ipis": ["1"]},
+        {"name": "B", "type": "Person", "ipis": []},
+    ]))
+    contributors = by_key(checks, "contributors")
+    assert contributors.severity == d.AMBER
+    assert contributors.summary == "1 of 2 have an IPI"
+
+
+def test_no_contributors_on_a_registered_song_is_neutral_not_amber():
+    """Nobody credited is usually nobody having added them. Don't accuse.
+
+    Neutral also keeps the row icon and the panel from disagreeing: an amber
+    here would warn on the table row for something we explicitly decline to
+    assert.
+    """
+    checks = d.song_checks(song(contributors=[]))
+    contributors = by_key(checks, "contributors")
+    assert contributors.severity == d.NEUTRAL
+    assert contributors.summary == "Not on record"
+    assert d.worst_severity(checks) == d.GREEN, "neutral must not escalate a row"
+
+
+def test_checks_severity_agrees_with_flags():
+    """The row's status icon and its panel must never contradict each other."""
+    cases = [
+        song(),
+        song(iswc=None),
+        song(work_mbid=None),
+        song(versions=[{"title": "x", "isrc": None, "is_primary": True}]),
+        song(contributors=[{"name": "W", "type": "Person", "ipis": []}]),
+    ]
+    for subject in cases:
+        flags = d.evaluate_song(subject)
+        checks = d.song_checks(subject)
+        assert d.worst_severity(flags) == d.worst_severity(checks), subject["title"]
+
+
 # --- headline -------------------------------------------------------------
 
 
@@ -443,7 +574,45 @@ def test_no_message_asserts_the_user_is_unregistered():
             assert phrase not in text, f"{key} asserts: {phrase!r}"
 
 
+def test_every_severity_has_both_labels():
+    """Two sets, because one label can't answer two different questions.
+
+    The status column asks "what's the state of this song?"; a category icon
+    asks "what's the state of this check?" and has to read after its own label.
+    """
+    for labels in (d.STATUS_LABELS, d.CHECK_LABELS):
+        assert set(labels) == {d.RED, d.AMBER, d.GREEN, d.NEUTRAL}
+        assert all(v.strip() for v in labels.values())
+
+
+def test_clear_states_never_sound_like_approval_or_verification():
+    """Green means "nothing is absent from our sources" — not "you're fine".
+
+    Approval words would overclaim, and verification words would collide with
+    the hollow/solid icon system, which reserves that idea for a human having
+    actually confirmed something. Nothing is verified in v1.
+    """
+    banned = ["verified", "complete", "correct", "all good", "passed",
+              "approved", "confirmed", "valid", "ok"]
+    for severity in (d.GREEN, d.NEUTRAL):
+        for labels in (d.STATUS_LABELS, d.CHECK_LABELS):
+            text = labels[severity].lower()
+            for word in banned:
+                assert word not in text, f"{labels[severity]!r} implies {word!r}"
+
+
+def test_problem_states_use_action_language_clear_states_describe():
+    """Say what to do when there's something to do; otherwise just report."""
+    assert d.STATUS_LABELS[d.RED] == "Needs attention"
+    assert d.STATUS_LABELS[d.AMBER] == "Worth checking"
+    assert d.STATUS_LABELS[d.GREEN] == "Nothing missing"
+    # The same phrase every empty table cell uses.
+    assert d.STATUS_LABELS[d.NEUTRAL] == "Not on record"
+
+
 def test_every_severity_has_an_icon():
     """Icon + colour + text, always — never colour alone."""
-    assert set(d.ICONS) == {d.RED, d.AMBER, d.GREEN}
+    assert set(d.ICONS) == {d.RED, d.AMBER, d.GREEN, d.NEUTRAL}
     assert all(d.ICONS.values())
+    # Distinct shapes, so the four survive greyscale and colourblindness.
+    assert len(set(d.ICONS.values())) == 4
