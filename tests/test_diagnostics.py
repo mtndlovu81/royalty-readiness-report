@@ -610,6 +610,23 @@ def test_problem_states_use_action_language_clear_states_describe():
     assert d.STATUS_LABELS[d.NEUTRAL] == "Not on record"
 
 
+def test_identifier_categories_carry_the_industry_acronym():
+    """Plain language leads, the acronym rides along.
+
+    "Publishing ID" alone teaches nobody the word a PRO or distributor will
+    actually ask them for; "ISWC" alone means nothing to someone who has never
+    filed one. Both, once, in the label.
+    """
+    assert d.CATEGORY_LABELS["publishing_id"] == "Publishing ID (ISWC)"
+    assert d.CATEGORY_LABELS["streaming_id"] == "Streaming ID (ISRC)"
+
+
+def test_check_labels_come_from_the_single_source():
+    """Table headers and panel categories must not drift apart."""
+    for check in d.song_checks(song()):
+        assert check.label == d.CATEGORY_LABELS[check.key]
+
+
 def test_every_severity_has_an_icon():
     """Icon + colour + text, always — never colour alone."""
     assert set(d.ICONS) == {d.RED, d.AMBER, d.GREEN, d.NEUTRAL}

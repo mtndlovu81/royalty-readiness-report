@@ -81,6 +81,21 @@ CHECK_LABELS = {
     NEUTRAL: "not on record",
 }
 
+# Category names, defined once so the table headers and the expanded panel
+# cannot drift apart.
+#
+# The industry acronym rides along in brackets deliberately. Plain language
+# leads, because most people never learn what an ISWC is — but a writer who has
+# filed one recognises it instantly, and someone meeting it here first will
+# recognise it later on a distributor's form or a PRO statement. The plain term
+# alone teaches nobody the word they will actually be asked for.
+CATEGORY_LABELS = {
+    "publishing_id": "Publishing ID (ISWC)",
+    "streaming_id": "Streaming ID (ISRC)",
+    "versions": "Other versions",
+    "contributors": "Contributors",
+}
+
 
 class Flag(NamedTuple):
     severity: str
@@ -336,20 +351,20 @@ def song_checks(song: dict[str, Any], shape: str = BOTH) -> list[Check]:
     # --- publishing -------------------------------------------------------
     if not has_composition:
         checks.append(Check(
-            "publishing_id", "Publishing ID", RED,
+            "publishing_id", CATEGORY_LABELS["publishing_id"], RED,
             "No composition record",
             COPY["no_composition"]["explanation"],
         ))
     elif song.get("iswc"):
         checks.append(Check(
-            "publishing_id", "Publishing ID", GREEN,
+            "publishing_id", CATEGORY_LABELS["publishing_id"], GREEN,
             song["iswc"],
             FOUND_COPY["publishing_id"],
         ))
     else:
         key = "no_publishing_id_performer" if shape == PERFORMER else "no_publishing_id"
         checks.append(Check(
-            "publishing_id", "Publishing ID", RED,
+            "publishing_id", CATEGORY_LABELS["publishing_id"], RED,
             "Not on record",
             COPY[key]["explanation"],
         ))
@@ -360,13 +375,13 @@ def song_checks(song: dict[str, Any], shape: str = BOTH) -> list[Check]:
     if shape != WRITER and primary is not None:
         if primary.get("isrc"):
             checks.append(Check(
-                "streaming_id", "Streaming ID", GREEN,
+                "streaming_id", CATEGORY_LABELS["streaming_id"], GREEN,
                 primary["isrc"],
                 FOUND_COPY["streaming_id"],
             ))
         else:
             checks.append(Check(
-                "streaming_id", "Streaming ID", RED,
+                "streaming_id", CATEGORY_LABELS["streaming_id"], RED,
                 "Not on record",
                 COPY["no_streaming_id_primary"]["explanation"],
             ))
@@ -377,13 +392,13 @@ def song_checks(song: dict[str, Any], shape: str = BOTH) -> list[Check]:
             total = len(versions)
             if with_id == total:
                 checks.append(Check(
-                    "versions", "Other versions", GREEN,
+                    "versions", CATEGORY_LABELS["versions"], GREEN,
                     f"All {total} versions have a streaming ID",
                     FOUND_COPY["versions_all"],
                 ))
             else:
                 checks.append(Check(
-                    "versions", "Other versions", AMBER,
+                    "versions", CATEGORY_LABELS["versions"], AMBER,
                     f"{with_id} of {total} versions have a streaming ID",
                     COPY["versions_partial"]["explanation"],
                 ))
@@ -397,7 +412,7 @@ def song_checks(song: dict[str, Any], shape: str = BOTH) -> list[Check]:
             # would accuse on an absence, and would also make this row's icon
             # disagree with the status the table shows.
             checks.append(Check(
-                "contributors", "Contributors", NEUTRAL,
+                "contributors", CATEGORY_LABELS["contributors"], NEUTRAL,
                 "Not on record",
                 "We couldn't find anyone credited as a writer on this song — most "
                 "often that means nobody has added the credits to our sources yet, "
@@ -413,13 +428,13 @@ def song_checks(song: dict[str, Any], shape: str = BOTH) -> list[Check]:
 
             if not eligible or not missing:
                 checks.append(Check(
-                    "contributors", "Contributors", GREEN,
+                    "contributors", CATEGORY_LABELS["contributors"], GREEN,
                     f"{named} credited" + (", all with an IPI" if eligible else ""),
                     FOUND_COPY["contributors_all"],
                 ))
             else:
                 checks.append(Check(
-                    "contributors", "Contributors", AMBER,
+                    "contributors", CATEGORY_LABELS["contributors"], AMBER,
                     f"{len(eligible) - len(missing)} of {len(eligible)} have an IPI",
                     COPY["contributor_no_ipi"]["explanation"],
                 ))

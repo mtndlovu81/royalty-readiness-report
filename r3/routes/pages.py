@@ -32,6 +32,7 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 # labels can't drift from the rules they describe.
 templates.env.globals["STATUS_LABELS"] = diagnostics.STATUS_LABELS
 templates.env.globals["CHECK_LABELS"] = diagnostics.CHECK_LABELS
+templates.env.globals["CATEGORY_LABELS"] = diagnostics.CATEGORY_LABELS
 
 
 @router.get("/", response_class=HTMLResponse)
