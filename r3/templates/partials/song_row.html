@@ -30,6 +30,10 @@
     {% if song.versions | length > 1 %}
       <span class="version-count">{{ song.versions | length }} versions</span>
     {% endif %}
+    {# A real URL for this song: shareable, and the path that works without
+       JavaScript, since row expansion needs it and this doesn't. #}
+    <a class="song-permalink" href="/artist/{{ artist.slug }}/{{ song.slug }}"
+       aria-label="Open {{ song.title }} on its own page">↗</a>
   </td>
 
   <td class="col-id">
@@ -67,88 +71,7 @@
   <td colspan="5">
     <div class="panel-inner">
 
-      {#
-        Every song shows the same categories in the same order, whether or not
-        anything is wrong. Listing only failures reads as an accusation and
-        leaves no way to tell "checked and found" from "never checked".
-      #}
-      <ul class="check-summary">
-        {% for check in song.checks %}
-          <li class="check-chip check-{{ check.severity }}">
-            {% with severity = check.severity, label = false, check_labels = true %}
-              {% include "partials/status_icon.html" %}
-            {% endwith %}
-            <span class="chip-label">{{ check.label }}</span>
-          </li>
-        {% endfor %}
-      </ul>
-
-      <ul class="checks">
-        {% for check in song.checks %}
-          <li class="check check-{{ check.severity }}">
-            <div class="check-icon">
-              {% with severity = check.severity, label = false, check_labels = true %}
-                {% include "partials/status_icon.html" %}
-              {% endwith %}
-            </div>
-            <div class="check-body">
-              <p class="check-head">
-                <span class="check-label">{{ check.label }}</span>
-                <span class="check-value{{ ' mono' if check.key in ('publishing_id', 'streaming_id') and check.severity == 'green' else '' }}">
-                  {{ check.summary }}
-                </span>
-              </p>
-              <p class="check-explanation">{{ check.explanation }}</p>
-
-              {% if check.key == "contributors" and song.credits_by_role %}
-                <div class="credits">
-                  {% for role, people in song.credits_by_role %}
-                    <p class="credit-line">
-                      <span class="credit-role">{{ role | capitalize }}</span>
-                      {% for person in people %}
-                        <span class="credit-name">
-                          {{ person.credited_as or person.name }}
-                          {% if person.type == "Person" and not person.ipis %}
-                            <span class="credit-flag">no IPI</span>
-                          {% elif person.type == "Person" %}
-                            <span class="credit-ok">IPI on record</span>
-                          {% endif %}
-                        </span>{{ "" if loop.last else "," }}
-                      {% endfor %}
-                    </p>
-                  {% endfor %}
-                </div>
-              {% endif %}
-
-              {% if check.key == "versions" %}
-                {# Say what each version has, not only what it's missing. #}
-                <ul class="version-list">
-                  {% for version in song.versions %}
-                    <li class="version">
-                      <span class="version-status">
-                        {% with severity = "green" if version.isrc else ("red" if version.is_primary else "amber"), label = false, check_labels = true %}
-                          {% include "partials/status_icon.html" %}
-                        {% endwith %}
-                      </span>
-                      <span class="version-name">
-                        {{ version.title }}
-                        {% if version.is_primary %}<span class="badge">Main</span>{% endif %}
-                      </span>
-                      <span class="version-id">
-                        {% if version.isrc %}
-                          <span class="mono">{{ version.isrc }}</span>
-                        {% else %}
-                          <span class="not-on-record">Not on record</span>
-                        {% endif %}
-                      </span>
-                    </li>
-                  {% endfor %}
-                </ul>
-              {% endif %}
-            </div>
-          </li>
-        {% endfor %}
-      </ul>
+      {% include "partials/song_detail.html" %}
 
     </div>
   </td>

@@ -76,6 +76,13 @@
 
     {# Hidden by the script, which sorts without a round trip. #}
     <button class="btn btn-quiet" type="submit" id="controls-submit">Apply</button>
+
+    {# A route nobody can reach is no feature. Sits with the controls because
+       exporting is the same kind of action as filtering: something you do to
+       the table. #}
+    <a class="btn btn-quiet export-link"
+       href="/artist/{{ artist.slug }}/export.csv?sort={{ sort }}"
+       download>Download CSV</a>
   </form>
 
   <p class="filter-status" id="filter-status" role="status" aria-live="polite"></p>

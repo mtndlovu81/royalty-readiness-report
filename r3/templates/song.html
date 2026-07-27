@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block back %}<a class="back-link" href="/artist/{{ artist.slug }}">← {{ artist.name }}</a>{% endblock %}
+
+{% block title %}{{ song.title }} — {{ artist.name }} — Royalty Readiness Report{% endblock %}
+{% block description %}Which identifiers are on record for “{{ song.title }}” by {{ artist.name }}.{% endblock %}
+
+{% block content %}
+
+<header class="profile-header">
+  <p class="song-breadcrumb">
+    <a href="/artist/{{ artist.slug }}">{{ artist.name }}</a>
+  </p>
+  <h1>{{ song.title }}</h1>
+  <p class="profile-meta">
+    {% with severity = song.severity %}
+      {% include "partials/status_icon.html" %}
+    {% endwith %}
+    {% if not song.is_primary_catalogue %}
+      <span class="sep">·</span>
+      <span class="badge">From a live album, compilation, or bootleg</span>
+    {% endif %}
+  </p>
+</header>
+
+<section class="song-report">
+  {# Same partial the profile row uses, so a song can never read one way in the
+     table and another on its own page. Anchors are on here: this is the URL
+     someone shares. #}
+  {% with anchors = true %}
+    {% include "partials/song_detail.html" %}
+  {% endwith %}
+</section>
+
+<p class="unverified song-footnote">
+  From public sources, none of it independently verified. An empty field usually
+  means nobody has entered it — not that the identifier doesn't exist.
+</p>
+
+{% endblock %}

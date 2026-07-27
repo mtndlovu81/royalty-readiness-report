@@ -5,6 +5,8 @@ preview correctly, and the whole thing is crawlable. `app.js` only manipulates
 what is already on the page.
 """
 
+import csv
+import io
 import logging
 import re
 import uuid
@@ -12,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from r3 import db, diagnostics
@@ -209,6 +211,79 @@ def load_profile(slug: str, sort: str = DEFAULT_SORT) -> dict[str, Any] | None:
     }
 
 
+NOT_ON_RECORD = "Not on record"
+
+# A cell starting with any of these is executed as a formula by Excel, Sheets
+# and LibreOffice. Song titles come from a volunteer-edited source, so a title
+# beginning "=" or "@" is entirely possible — and a spreadsheet that runs it is
+# a real attack, not a formatting glitch.
+FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: Any) -> str:
+    """Neutralise spreadsheet formula injection.
+
+    Prefixing with an apostrophe is the standard defence: spreadsheets treat the
+    rest as literal text and don't display the apostrophe itself.
+    """
+    text = "" if value is None else str(value)
+    if text.startswith(FORMULA_TRIGGERS):
+        return "'" + text
+    return text
+
+
+@router.get("/artist/{slug}/export.csv")
+def export_csv(slug: str, sort: str = Query(default=DEFAULT_SORT)):
+    """The whole catalogue as a spreadsheet.
+
+    One row per version rather than per song: every missing streaming ID is its
+    own line, which is what makes the file usable as a worklist for a
+    distributor or a PRO.
+    """
+    profile = load_profile(slug, sort)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="No profile for that name")
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([
+        "Song", "Version", "Main version",
+        diagnostics.CATEGORY_LABELS["streaming_id"],
+        diagnostics.CATEGORY_LABELS["publishing_id"],
+        "Contributors", "Catalogue", "Status", "What to look at",
+    ])
+
+    for tier, songs in (("Primary", profile["primary_songs"]),
+                        ("Secondary", profile["secondary_songs"])):
+        for song in songs:
+            contributors = ", ".join(dict.fromkeys(
+                c["credited_as"] or c["name"] for c in song["contributors"]
+            )) or NOT_ON_RECORD
+            # The same wording the page uses, so the file and the screen agree.
+            issues = "; ".join(f.headline for f in song["flags"]) or "Nothing missing"
+
+            for version in song["versions"] or [None]:
+                writer.writerow([_csv_safe(v) for v in (
+                    song["title"],
+                    version["title"] if version else NOT_ON_RECORD,
+                    ("Yes" if version["is_primary"] else "No") if version else "",
+                    (version["isrc"] if version and version["isrc"] else NOT_ON_RECORD),
+                    song["iswc"] or NOT_ON_RECORD,
+                    contributors,
+                    tier,
+                    diagnostics.STATUS_LABELS[song["severity"]],
+                    issues,
+                )])
+
+    filename = f"{slug}-royalty-readiness.csv"
+    return Response(
+        # A BOM so Excel reads it as UTF-8 — without it, "Björk" arrives mangled.
+        content="﻿" + buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 MBID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
 
@@ -301,3 +376,32 @@ def artist_profile(request: Request, slug: str, sort: str = Query(default=DEFAUL
         raise HTTPException(status_code=404, detail="No profile for that name")
 
     return templates.TemplateResponse(request, "artist.html", profile)
+
+
+@router.get("/artist/{slug}/{song_slug}", response_class=HTMLResponse)
+def song_page(request: Request, slug: str, song_slug: str):
+    """One song, on its own URL.
+
+    Registered after `export.csv` so that path isn't swallowed as a song slug.
+
+    Loads the whole profile and picks one song out of it. That is more work
+    than a targeted query, but artist shape is computed from every credit and
+    recording the artist has — so a single-song query would have to reproduce
+    that or risk diagnosing this song differently here than on the profile. At
+    0.14s for a 284-song artist, correctness is the better trade.
+    """
+    profile = load_profile(slug)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="No profile for that name")
+
+    song = next(
+        (s for s in profile["primary_songs"] + profile["secondary_songs"]
+         if s["slug"] == song_slug),
+        None,
+    )
+    if song is None:
+        raise HTTPException(status_code=404, detail="No song by that name")
+
+    return templates.TemplateResponse(
+        request, "song.html", {"artist": profile["artist"], "song": song}
+    )

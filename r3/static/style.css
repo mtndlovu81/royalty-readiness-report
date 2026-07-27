@@ -465,6 +465,46 @@ tr[hidden] { display: none !important; }
 .col-people { color: var(--text-dim); }
 .col-status { white-space: nowrap; }
 
+.export-link {
+  margin-left: auto;
+  text-decoration: none;
+  align-self: flex-end;
+}
+
+/* --- song page ---------------------------------------------------------- */
+
+.song-breadcrumb { margin: 0 0 0.25rem; color: var(--text-dim); font-size: 0.9rem; }
+.song-report { margin-top: 1.5rem; }
+.song-footnote { margin-top: 2rem; }
+
+/* Quiet until the row is hovered or focused: a permalink on every row would
+ * compete with the song title for attention. */
+.song-permalink {
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-left: 0.5rem;
+  opacity: 0;
+  font-size: 0.85rem;
+}
+.song-row:hover .song-permalink,
+.song-permalink:focus-visible { opacity: 1; color: var(--accent); }
+
+.version-anchor {
+  color: var(--text-muted);
+  text-decoration: none;
+  opacity: 0;
+  padding-inline: 0.3rem;
+}
+.version:hover .version-anchor,
+.version-anchor:focus-visible { opacity: 1; color: var(--accent); }
+
+/* Landing on a shared #v2 link should make it obvious which one was meant. */
+.version:target {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+  padding-left: 0.6rem;
+}
+
 /* --- status ------------------------------------------------------------- */
 
 .status { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
