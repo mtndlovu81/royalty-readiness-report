@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Building this profile — Royalty Readiness Report{% endblock %}
+{# Private status link. Never indexed — otherwise we accumulate hollow pages. #}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block content %}
+<div class="hero">
+  {% if job.status == 'failed' %}
+    <h1>We couldn't build this profile</h1>
+    <p class="lede">
+      Something went wrong reading the public sources for this artist. This is
+      usually temporary.
+    </p>
+    {% if job.error %}
+      <p class="unverified">Reason recorded: {{ job.error }}</p>
+    {% endif %}
+    <p><a href="/">Try another search</a></p>
+
+  {% else %}
+    <h1>We're building this profile</h1>
+    <p class="lede">
+      We're reading the public sources for this artist now. It usually takes
+      under a minute — longer for a large catalogue, because we deliberately
+      make only one request per second to the database we rely on.
+    </p>
+    <p>
+      Keep this link. Reload it and the profile will be here when it's ready.
+    </p>
+    <p class="unverified">Status: {{ job.status }}</p>
+  {% endif %}
+</div>
+{% endblock %}

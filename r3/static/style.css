@@ -269,6 +269,212 @@ a.result:hover { border-color: var(--accent); background: var(--surface-2); }
 
 .mono { font-family: var(--mono); font-size: 0.9em; }
 
+/* --- profile ------------------------------------------------------------ */
+
+.profile-header { padding-block: 1.5rem 0.5rem; }
+.profile-header h1 { font-size: clamp(1.7rem, 4.5vw, 2.4rem); letter-spacing: -0.02em; }
+.profile-meta { color: var(--text-dim); margin: 0; }
+.profile-meta .sep { color: var(--text-muted); padding-inline: 0.4rem; }
+
+/* One figure, large, above the table. It sets the stakes and it is what
+ * people screenshot — which is also why the caveat sits directly beneath it. */
+.headline { padding-block: 1.25rem 1.75rem; }
+.headline-number { font-size: clamp(1.15rem, 3vw, 1.5rem); margin: 0 0 0.35rem; }
+.headline-number strong { font-size: 1.6em; font-weight: 700; letter-spacing: -0.02em; }
+
+.artist-diagnostics { margin-bottom: 2rem; }
+
+/* --- song table --------------------------------------------------------- */
+
+.songs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.songs caption { text-align: left; }
+
+.songs thead th {
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.songs td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: baseline;
+}
+
+.song-row { cursor: pointer; }
+.song-row:hover { background: var(--surface); }
+.song-row.is-open { background: var(--surface); }
+
+/* A recessed chevron indicates expandability without competing with the
+ * status icon, which is the actual affordance. */
+.song-toggle {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.chevron {
+  color: var(--text-muted);
+  transition: transform 0.12s ease;
+  display: inline-block;
+}
+.song-row.is-open .chevron { transform: rotate(90deg); }
+
+.song-title { font-weight: 500; }
+
+.version-count {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+
+.col-id { white-space: nowrap; }
+.col-people { color: var(--text-dim); }
+.col-status { white-space: nowrap; }
+
+/* --- status ------------------------------------------------------------- */
+
+.status { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.status-glyph { flex: none; }
+
+.status-red   { color: var(--crit); }
+.status-amber { color: var(--warn); }
+.status-green { color: var(--ok); }
+
+.status-label { font-size: 0.85rem; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* --- expanded panel ----------------------------------------------------- */
+
+.song-panel > td { background: var(--surface-2); padding: 0; }
+.panel-inner { padding: 1.1rem 1.25rem 1.4rem; }
+
+.diagnostics { list-style: none; margin: 0 0 1.25rem; padding: 0; }
+.diagnostics:last-child { margin-bottom: 0; }
+
+.diagnostic { display: flex; gap: 0.75rem; padding-block: 0.6rem; }
+.diagnostic + .diagnostic { border-top: 1px solid var(--border); }
+
+.diagnostic-icon { flex: none; padding-top: 0.15rem; }
+.diagnostic-body { min-width: 0; }
+.diagnostic-headline { font-weight: 600; margin: 0 0 0.25rem; }
+.diagnostic-explanation {
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 62ch;
+  font-size: 0.92rem;
+}
+
+.all-clear { color: var(--text-dim); margin: 0 0 1rem; max-width: 62ch; }
+
+.credits, .versions { margin-top: 1.1rem; }
+.credits h3, .versions h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.credit-line { margin: 0 0 0.3rem; }
+.credit-role { color: var(--text-muted); display: inline-block; min-width: 6rem; }
+.credit-name { color: var(--text); }
+
+/* Amber, because it is an amber finding — the same fact the row's flag makes,
+ * shown where the name is. */
+.credit-flag {
+  color: var(--warn);
+  font-size: 0.78rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  margin-left: 0.2rem;
+}
+
+.version-list { list-style: none; margin: 0; padding: 0; }
+.version {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-block: 0.35rem;
+}
+.version + .version { border-top: 1px solid var(--border); }
+.version-name { flex: 1 1 16rem; min-width: 0; }
+.version-id { flex: 0 0 auto; }
+
+/* --- secondary catalogue ------------------------------------------------ */
+
+.secondary { margin-top: 2.5rem; }
+
+.secondary > summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.secondary > summary:hover { color: var(--text); }
+
+.secondary-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  max-width: 62ch;
+  margin: 0 0 1rem;
+}
+
+/* --- buildable search result -------------------------------------------- */
+
+/* A submit button styled as the row, so an artist we can build behaves exactly
+ * like one we already hold. Same target size, same hover, one click. */
+.result-button {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  align-items: center;
+}
+.result-button:hover { border-color: var(--accent); background: var(--surface-2); }
+
+.result-button .result-meta { flex: 1 1 auto; }
+
+.result-cue { color: var(--text-muted); font-size: 1.2rem; flex: none; }
+.result-button:hover .result-cue { color: var(--accent); }
+
+@media (max-width: 46rem) {
+  .songs { font-size: 0.9rem; }
+  .col-people { display: none; }
+  .songs thead th:nth-child(4) { display: none; }
+  .credit-role { min-width: 0; margin-right: 0.4rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }

@@ -38,8 +38,8 @@
         {{ results | length }} profile{{ "" if results | length == 1 else "s" }}
         matching “{{ query }}”
       {% else %}
-        {{ results | length }} possible match{{ "" if results | length == 1 else "es" }}
-        for “{{ query }}” — not in our catalogue yet
+        {{ results | length }} match{{ "" if results | length == 1 else "es" }}
+        for “{{ query }}” — build one to see its report
       {% endif %}
     </p>
   </div>
@@ -58,16 +58,35 @@
           {% if artist.status == "building" %}<span class="badge">Building…</span>{% endif %}
         </a>
       {% else %}
-        <div class="result is-unbuilt">
-          <span class="result-name">{{ artist.name }}</span>
-          <span class="result-meta">
-            {% if artist.disambiguation %}{{ artist.disambiguation }}<span class="sep">·</span>{% endif %}
-            {% if artist.type %}{{ artist.type }}{% endif %}
-            {% if artist.country %}<span class="sep">·</span>{{ artist.country }}{% endif %}
-            {% if artist.began %}<span class="sep">·</span>from {{ artist.began[:4] }}{% endif %}
-          </span>
-          <span class="badge">Not in our catalogue</span>
-        </div>
+        {#
+          These artists exist upstream and are buildable — the worker can have a
+          profile ready in under a minute. Rendering them as absent would break
+          discovery for every artist we haven't pre-seeded, which is nearly all
+          of them.
+
+          A POST, not a link: a crawler following a build link would queue one
+          build per result, each a minute of upstream traffic at one request per
+          second. That is the resource the whole architecture exists to protect.
+        #}
+        {#
+          The whole row is the control, so this behaves exactly like an artist
+          we already hold — the visitor wants the report, not a two-step
+          decision about building one. Still a POST, so crawlers and prefetchers
+          can't queue builds.
+        #}
+        <form action="/artist/build" method="post">
+          <input type="hidden" name="mbid" value="{{ artist.mbid }}">
+          <button class="result result-button" type="submit">
+            <span class="result-name">{{ artist.name }}</span>
+            <span class="result-meta">
+              {% if artist.disambiguation %}{{ artist.disambiguation }}<span class="sep">·</span>{% endif %}
+              {% if artist.type %}{{ artist.type }}{% endif %}
+              {% if artist.country %}<span class="sep">·</span>{{ artist.country }}{% endif %}
+              {% if artist.began %}<span class="sep">·</span>from {{ artist.began[:4] }}{% endif %}
+            </span>
+            <span class="result-cue" aria-hidden="true">›</span>
+          </button>
+        </form>
       {% endif %}
       </li>
     {% endfor %}

@@ -1,0 +1,36 @@
+{#
+  Icon + colour + text, always — never colour alone. Each severity gets a
+  distinct SHAPE as well as a distinct colour, so the status survives
+  colourblindness and a greyscale screenshot.
+
+  Hollow when unverified, solid when verified. Nothing is verified in v1, so
+  everything renders hollow; the visual language is in place for when it isn't.
+
+  Params: severity ("red"|"amber"|"green"), verified (bool), label (bool)
+#}
+{% set shapes = {"red": "circle-x", "amber": "alert-triangle", "green": "circle-check"} %}
+{% set labels = {"red": "Needs attention", "amber": "Worth checking", "green": "Complete"} %}
+{% set solid = verified | default(false) %}
+
+<span class="status status-{{ severity }}{{ ' is-verified' if solid else '' }}">
+  <svg class="status-glyph" viewBox="0 0 24 24" width="18" height="18"
+       aria-hidden="true" focusable="false"
+       fill="{{ 'currentColor' if solid else 'none' }}"
+       stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round">
+    {% if severity == "amber" %}
+      <path d="M12 3.5 22 20H2z"/>
+      <path d="M12 10v4" stroke="{{ 'var(--bg)' if solid else 'currentColor' }}"/>
+      <path d="M12 17.5h.01" stroke="{{ 'var(--bg)' if solid else 'currentColor' }}"/>
+    {% elif severity == "red" %}
+      <circle cx="12" cy="12" r="9"/>
+      <path d="m15 9-6 6m0-6 6 6" stroke="{{ 'var(--bg)' if solid else 'currentColor' }}"/>
+    {% else %}
+      <circle cx="12" cy="12" r="9"/>
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" stroke="{{ 'var(--bg)' if solid else 'currentColor' }}"/>
+    {% endif %}
+  </svg>
+  <span class="{{ 'status-label' if label | default(true) else 'visually-hidden' }}">
+    {{ labels[severity] }}
+  </span>
+</span>

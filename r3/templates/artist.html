@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% set flagged, total = headline %}
+
+{% block title %}{{ artist.name }} — Royalty Readiness Report{% endblock %}
+{% block description %}{{ flagged }} of {{ total }} songs by {{ artist.name }} are missing identifiers royalty payments depend on.{% endblock %}
+
+{% block content %}
+
+<header class="profile-header">
+  <h1>{{ artist.name }}</h1>
+  <p class="profile-meta">
+    {% if artist.disambiguation %}{{ artist.disambiguation }}<span class="sep">·</span>{% endif %}
+    {% if artist.type %}{{ artist.type }}{% endif %}
+    {% if artist.country %}<span class="sep">·</span>{{ artist.country }}{% endif %}
+  </p>
+</header>
+
+{% if artist.status == 'building' %}
+  <div class="notice">
+    <h2>We're still building this profile</h2>
+    <p>It usually takes under a minute. Reload the page shortly.</p>
+  </div>
+{% endif %}
+
+{# The figure that sets the stakes, and the thing people screenshot. #}
+<section class="headline">
+  {% if total %}
+    <p class="headline-number">
+      <strong>{{ flagged }}</strong> of {{ total }} songs need attention
+    </p>
+  {% else %}
+    <p class="headline-number"><strong>No songs</strong> on record yet</p>
+  {% endif %}
+  <p class="unverified">
+    From public sources, none of it independently verified. An empty field
+    usually means nobody has entered it — not that the identifier doesn't exist.
+  </p>
+</section>
+
+{% if artist_flags %}
+  {# Artist-level facts live here, stated once — never repeated on every row,
+     which would stop the status column discriminating between songs. #}
+  <ul class="diagnostics artist-diagnostics">
+    {% for flag in artist_flags %}
+      {% include "partials/diagnostic.html" %}
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if primary_songs %}
+  <table class="songs">
+    <caption class="visually-hidden">
+      Songs by {{ artist.name }}, with the identifiers found for each.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Song</th>
+        <th scope="col">Streaming ID</th>
+        <th scope="col">Publishing ID</th>
+        <th scope="col">Contributors</th>
+        <th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for song in primary_songs %}
+        {% include "partials/song_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+{% elif total == 0 and artist.status != 'building' %}
+  <p class="empty">
+    We hold no songs for this artist yet. That usually means our sources have
+    the artist but not their catalogue.
+  </p>
+{% endif %}
+
+{% if secondary_songs %}
+  {# Collapsed, never hidden. A live take with no streaming ID is a real gap,
+     just not one that belongs in the headline number. Native <details>, so it
+     works without JavaScript. #}
+  <details class="secondary">
+    <summary>
+      {{ secondary_songs | length }} more from live albums, compilations, and bootlegs
+    </summary>
+    <p class="secondary-note">
+      These carry the same checks but aren't counted above — they're rarely
+      registered separately, and counting them would drown the number that
+      matters.
+    </p>
+    <table class="songs">
+      <thead>
+        <tr>
+          <th scope="col">Song</th>
+          <th scope="col">Streaming ID</th>
+          <th scope="col">Publishing ID</th>
+          <th scope="col">Contributors</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for song in secondary_songs %}
+          {% include "partials/song_row.html" %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/app.js" defer></script>
+{% endblock %}

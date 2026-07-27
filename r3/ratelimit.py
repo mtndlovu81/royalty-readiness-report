@@ -44,6 +44,9 @@ RULES: tuple[tuple[str, str | None, Rule], ...] = (
     # so it needs the same ceiling. Limiting only the JSON route would leave
     # the budget wide open to anyone using a browser.
     ("/search", "GET", SEARCH),
+    # Queues a catalogue build — a minute of upstream traffic each. The
+    # tightest ceiling we have.
+    ("/artist/build", "POST", WRITE),
     ("/api/request-artist", "POST", WRITE),
     ("/api/report", "POST", WRITE),
 )

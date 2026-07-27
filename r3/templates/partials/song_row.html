@@ -1,0 +1,126 @@
+{#
+  One song, and its expandable diagnostic. A single-version song is a group of
+  one — same template, same code path, the versions section simply doesn't
+  render. Two templates for "song" is how inconsistency creeps in.
+
+  The status icon is the affordance; there is no separate question-mark control,
+  because a second symbol beside the first splits attention. The whole row is
+  clickable, and the title is a real <button> so the keyboard and a screen
+  reader get the same behaviour as the mouse.
+
+  Params: song, verified (bool)
+#}
+{% set panel_id = "d-" ~ song.id %}
+{% set primary = song.primary_version %}
+
+<tr class="song-row severity-{{ song.severity }}" data-panel="{{ panel_id }}">
+  <td class="col-song">
+    <button class="song-toggle" type="button"
+            aria-expanded="false" aria-controls="{{ panel_id }}">
+      <span class="chevron" aria-hidden="true">›</span>
+      <span class="song-title">{{ song.title }}</span>
+    </button>
+    {% if song.versions | length > 1 %}
+      <span class="version-count">{{ song.versions | length }} versions</span>
+    {% endif %}
+  </td>
+
+  <td class="col-id">
+    {% if primary and primary.isrc %}
+      <span class="mono">{{ primary.isrc }}</span>
+    {% else %}
+      <span class="not-on-record">Not on record</span>
+    {% endif %}
+  </td>
+
+  <td class="col-id">
+    {% if song.iswc %}
+      <span class="mono">{{ song.iswc }}</span>
+    {% else %}
+      <span class="not-on-record">Not on record</span>
+    {% endif %}
+  </td>
+
+  <td class="col-people">
+    {% if song.contributors %}
+      {{ song.contributors | map(attribute="credited_as") | select | unique | join(", ") }}
+    {% else %}
+      <span class="not-on-record">Not on record</span>
+    {% endif %}
+  </td>
+
+  <td class="col-status">
+    {% with severity = song.severity %}
+      {% include "partials/status_icon.html" %}
+    {% endwith %}
+  </td>
+</tr>
+
+<tr class="song-panel" id="{{ panel_id }}" hidden>
+  <td colspan="5">
+    <div class="panel-inner">
+
+      {% if song.flags %}
+        <ul class="diagnostics">
+          {% for flag in song.flags %}
+            {% include "partials/diagnostic.html" %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="all-clear">
+          Everything we look for is present on this song. That doesn't guarantee
+          the registrations are correct — only that nothing is missing from our
+          sources.
+        </p>
+      {% endif %}
+
+      {% if song.credits_by_role %}
+        <section class="credits">
+          <h3>Contributors</h3>
+          {% for role, people in song.credits_by_role %}
+            <p class="credit-line">
+              <span class="credit-role">{{ role | capitalize }}</span>
+              {% for person in people %}
+                <span class="credit-name">
+                  {{ person.credited_as or person.name }}
+                  {% if person.type == "Person" and not person.ipis %}
+                    <span class="credit-flag" title="No IPI found">no IPI</span>
+                  {% endif %}
+                </span>{{ "" if loop.last else "," }}
+              {% endfor %}
+            </p>
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if song.versions | length > 1 %}
+        <section class="versions">
+          <h3>{{ song.versions | length }} versions</h3>
+          <ul class="version-list">
+            {% for version in song.versions %}
+              <li class="version">
+                <span class="version-name">
+                  {{ version.title }}
+                  {% if version.is_primary %}<span class="badge">Main</span>{% endif %}
+                </span>
+                <span class="version-id">
+                  {% if version.isrc %}
+                    <span class="mono">{{ version.isrc }}</span>
+                  {% else %}
+                    <span class="not-on-record">No streaming ID</span>
+                  {% endif %}
+                </span>
+                <span class="version-status">
+                  {% with severity = "green" if version.isrc else ("red" if version.is_primary else "amber"), label = false %}
+                    {% include "partials/status_icon.html" %}
+                  {% endwith %}
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
+    </div>
+  </td>
+</tr>

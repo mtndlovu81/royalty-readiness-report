@@ -1,0 +1,19 @@
+{#
+  One check. Icon, headline, explanation — the explanation always follows the
+  §2 formula (what we found → why that might be → what it costs if real → what
+  to do), because people screenshot individual rows and the page's unverified
+  banner doesn't travel with them.
+
+  Params: flag (diagnostics.Flag), verified (bool)
+#}
+<li class="diagnostic diagnostic-{{ flag.severity }}">
+  <div class="diagnostic-icon">
+    {% with severity = flag.severity, label = false %}
+      {% include "partials/status_icon.html" %}
+    {% endwith %}
+  </div>
+  <div class="diagnostic-body">
+    <p class="diagnostic-headline">{{ flag.headline }}</p>
+    <p class="diagnostic-explanation">{{ flag.explanation }}</p>
+  </div>
+</li>
