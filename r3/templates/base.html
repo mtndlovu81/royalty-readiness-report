@@ -30,6 +30,10 @@
 
 <header class="site-header">
   <div class="wrap">
+    {# Labelled by destination, not "back": it always goes somewhere specific,
+       and a control that claims to retrace history but doesn't is worse than
+       none. The browser's own back button still does the real thing. #}
+    {% block back %}{% endblock %}
     <a class="wordmark" href="/">Royalty Readiness Report<span class="mark"> r³</span></a>
     <span class="tagline">Which of your songs are missing the IDs royalties depend on</span>
   </div>

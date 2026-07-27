@@ -4,30 +4,82 @@
 {# Private status link. Never indexed — otherwise we accumulate hollow pages. #}
 {% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 
+{% block back %}<a class="back-link" href="/">← New search</a>{% endblock %}
+
 {% block content %}
-<div class="hero">
+<div class="hero" id="pending" data-request-id="{{ job.id }}">
+
   {% if job.status == 'failed' %}
     <h1>We couldn't build this profile</h1>
     <p class="lede">
       Something went wrong reading the public sources for this artist. This is
       usually temporary.
     </p>
-    {% if job.error %}
-      <p class="unverified">Reason recorded: {{ job.error }}</p>
-    {% endif %}
+    {# The recorded reason is upstream diagnostic text — useful in the queue
+       table, not on a page someone reads. #}
     <p><a href="/">Try another search</a></p>
 
   {% else %}
-    <h1>We're building this profile</h1>
-    <p class="lede">
+    {# Rendered from what the server already knows, so a reload of a stalled
+       build is correct immediately and stays correct without JavaScript. #}
+    <h1 id="pending-title">
+      {% if status and status.stalled %}
+        This is taking longer than usual
+      {% else %}
+        We're building this profile
+      {% endif %}
+    </h1>
+
+    {# Shown when nothing has touched the job recently. Hidden by default so
+       the common case reads normally; the poller reveals it.
+
+       Say what the visitor can observe and act on, and nothing about how the
+       system is built. The operator-facing detail — that no worker is running
+       — is logged server-side, where the person who can fix it will see it. #}
+    <div class="notice notice-warn" id="stalled-notice"
+         {% if not (status and status.stalled) %}hidden{% endif %}>
+      <p>
+        We haven't been able to start on this profile yet, so it won't be ready
+        in the next few moments.
+      </p>
+      <p>
+        Nothing is lost. This link is saved — come back to it later and the
+        report will be here once it's ready. In the meantime you can look
+        someone else up.
+      </p>
+    </div>
+
+    <p class="lede" id="pending-lede"
+       {% if status and status.stalled %}hidden{% endif %}>
       We're reading the public sources for this artist now. It usually takes
-      under a minute — longer for a large catalogue, because we deliberately
-      make only one request per second to the database we rely on.
+      under a minute. A large catalogue takes longer, because we go through it
+      carefully rather than all at once.
     </p>
-    <p>
-      Keep this link. Reload it and the profile will be here when it's ready.
+
+    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+         aria-valuenow="{{ job.progress_pct or 0 }}"
+         aria-labelledby="progress-label" id="progress">
+      <div class="progress-bar" id="progress-bar"
+           style="width: {{ job.progress_pct or 0 }}%"></div>
+    </div>
+
+    <p class="progress-label" id="progress-label">
+      {% if status and status.stalled %}
+        Not started yet
+      {% else %}
+        {{ job.progress or "Getting ready to start" }}
+      {% endif %}
     </p>
-    <p class="unverified">Status: {{ job.status }}</p>
+
+    <p class="unverified">
+      Keep this link — it's where this profile will appear. You can leave and
+      come back to it.
+    </p>
   {% endif %}
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/pending.js" defer></script>
 {% endblock %}

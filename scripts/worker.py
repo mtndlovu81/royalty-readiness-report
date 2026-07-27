@@ -78,7 +78,8 @@ def mark_done(queue_id: str, artist_id: str, error: str | None) -> None:
     db.execute(
         """
         UPDATE build_queue
-           SET status = 'done', finished_at = now(), artist_id = %s, error = %s
+           SET status = 'done', finished_at = now(), artist_id = %s, error = %s,
+               progress = 'Finished', progress_pct = 100, heartbeat_at = now()
          WHERE id = %s
         """,
         (artist_id, error, queue_id),
@@ -131,10 +132,26 @@ def process_one() -> bool:
     log.info("building %s (attempt %d)", mbid, job["attempts"])
     started = time.monotonic()
 
+    def report(message: str, pct: int) -> None:
+        """Publish the phase, and touch the heartbeat.
+
+        The heartbeat is what lets the status page say "nothing is running"
+        instead of showing a reassuring bar for a build nobody is working on.
+        """
+        db.execute(
+            """
+            UPDATE build_queue
+               SET progress = %s, progress_pct = %s, heartbeat_at = now()
+             WHERE id = %s
+            """,
+            (message, max(0, min(100, pct)), job["id"]),
+        )
+
     try:
-        catalogue = builder.fetch_catalogue(mbid)
+        catalogue = builder.fetch_catalogue(mbid, on_progress=report)
         songs = builder.group_songs(catalogue.recordings, catalogue.works, catalogue.albums)
-        contributors = builder.resolve_contributors(songs)
+        contributors = builder.resolve_contributors(songs, on_progress=report)
+        report("Saving the catalogue", 96)
         artist_id = builder.persist(catalogue, songs, contributors)
         # Steps 1–4 plus every contributor lookup and retry.
         catalogue.requests = mb.request_count

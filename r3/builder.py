@@ -132,6 +132,14 @@ class FetchedCatalogue:
         return not self.errors
 
 
+def _no_progress(message: str, pct: int) -> None:
+    """Default progress sink — does nothing.
+
+    Defined before its first use as a default argument: a default is evaluated
+    at definition time, so declaring it later in the file breaks the import.
+    """
+
+
 def _track_count(release: dict[str, Any]) -> int | None:
     """Total tracks across all media, or None when the browse omitted them."""
     media = release.get("media")
@@ -437,7 +445,7 @@ def group_songs(
     return songs
 
 
-def resolve_contributors(songs: list[Song]) -> dict[str, dict[str, Any]]:
+def resolve_contributors(songs: list[Song], on_progress=_no_progress) -> dict[str, dict[str, Any]]:
     """Step 5. Fill in each distinct contributor's `type` and `ipis`.
 
     Cached globally rather than per artist: a producer credited across forty
@@ -465,7 +473,14 @@ def resolve_contributors(songs: list[Song]) -> dict[str, dict[str, Any]]:
     misses = [mbid for mbid in wanted if mbid not in cached]
     log.info("contributors: %d cached, %d to fetch", len(cached), len(misses))
 
-    for mbid in misses:
+    total_misses = len(misses) or 1
+    for done, mbid in enumerate(misses, start=1):
+        # Often the longest phase on a large catalogue — Björk needed 83 of
+        # these, one per second. Reporting it stops the page looking frozen.
+        on_progress(
+            f"Checking contributors ({done} of {len(misses)})",
+            65 + int(30 * done / total_misses),
+        )
         try:
             data = mb.get_artist(mbid)
         except mb.MusicBrainzError as exc:
@@ -487,20 +502,35 @@ def resolve_contributors(songs: list[Song]) -> dict[str, dict[str, Any]]:
     return resolved
 
 
-def fetch_catalogue(mbid: str) -> FetchedCatalogue:
-    """Steps 1–3 end to end. No database writes."""
+def fetch_catalogue(mbid: str, on_progress=_no_progress) -> FetchedCatalogue:
+    """Steps 1–3 end to end. No database writes.
+
+    `on_progress(message, pct)` is called at each phase. Percentages come from
+    real counts — albums read, contributors resolved — never from elapsed time.
+    A bar that advances on its own while nothing is happening is a lie, and this
+    build is slow enough (one request per second, by obligation) that whoever is
+    waiting deserves to know it is genuinely moving.
+    """
     mb.reset_request_count()
 
+    on_progress("Looking up the artist", 2)
     artist = fetch_artist(mbid)
     log.info("building %s (%s)", artist["name"], artist["type"])
 
+    on_progress(f"Reading the album list for {artist['name']}", 6)
     releases = browse_releases(mbid)
     albums = collapse_to_albums(releases)
     log.info("%d releases collapsed to %d albums", len(releases), len(albums))
 
     catalogue = FetchedCatalogue(artist=artist, albums=albums)
 
-    for album in albums:
+    total_albums = len(albums) or 1
+    for index, album in enumerate(albums, start=1):
+        # The album browse is the bulk of the work, so it earns the widest band.
+        on_progress(
+            f"Reading songs from “{album.title}” ({index} of {len(albums)})",
+            10 + int(45 * index / total_albums),
+        )
         try:
             catalogue.recordings.extend(
                 browse_recordings(album.canonical_release_mbid, album.release_group_mbid)
@@ -512,6 +542,7 @@ def fetch_catalogue(mbid: str) -> FetchedCatalogue:
             catalogue.errors.append(f"{album.title}: {exc}")
 
     try:
+        on_progress("Reading composition records", 60)
         catalogue.works = browse_works(mbid)
         log.info("%d works", len(catalogue.works))
     except mb.MusicBrainzError as exc:

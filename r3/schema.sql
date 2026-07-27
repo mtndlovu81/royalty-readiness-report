@@ -128,6 +128,16 @@ CREATE TABLE build_queue (
     -- queued | running | done | failed
   attempts     integer NOT NULL DEFAULT 0,
   error        text,
+  progress      text,
+    -- Human-readable phase, written by the worker as it goes. The status page
+    -- shows this verbatim, so it must be user-facing language.
+  progress_pct  integer NOT NULL DEFAULT 0,
+    -- Derived from real counts (albums read, contributors resolved), never a
+    -- timer. A bar that moves on its own while nothing happens is a lie.
+  heartbeat_at  timestamptz,
+    -- Touched by the worker on every phase. Lets the status page tell "still
+    -- working" from "nothing is running", which are identical from the queue
+    -- row alone and mean very different things to whoever is waiting.
   requested_at timestamptz NOT NULL DEFAULT now(),
   started_at   timestamptz,
   finished_at  timestamptz

@@ -7,9 +7,10 @@ is the worker's job, and it is what keeps the throttle invariant intact.
 """
 
 import logging
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from psycopg.types.json import Jsonb
 
@@ -221,6 +222,71 @@ def run_search(q: str) -> dict[str, Any]:
 def search(q: str = Query(default="", max_length=MAX_QUERY_LENGTH)) -> dict[str, Any]:
     """Live search, for the JSON client."""
     return run_search(q)
+
+
+# A build with no heartbeat for this long is not running. Generous, because a
+# single upstream request can legitimately take 30s plus retries.
+STALLED_AFTER_SECONDS = 90
+
+
+def build_status(request_id: str) -> dict[str, Any] | None:
+    """Progress for one queued build. Shared by the API and the status page."""
+    job = db.query_one(
+        """
+        SELECT id, artist_mbid, status, error, progress, progress_pct,
+               EXTRACT(EPOCH FROM (now() - requested_at))::int AS waiting_seconds,
+               EXTRACT(EPOCH FROM (now() - COALESCE(heartbeat_at, started_at)))::int
+                   AS since_heartbeat
+          FROM build_queue WHERE id = %s
+        """,
+        (request_id,),
+    )
+    if job is None:
+        return None
+
+    artist = db.query_one(
+        "SELECT slug FROM artists WHERE mbid = %s AND status = 'published'",
+        (job["artist_mbid"],),
+    )
+
+    since = job["since_heartbeat"]
+    # Nothing has touched this row recently. Either no worker is running or it
+    # died mid-build; from here those look identical, and both mean the same
+    # thing to whoever is waiting — say so rather than showing a hopeful bar.
+    stalled = (
+        job["status"] in ("queued", "running")
+        and (since is None or since > STALLED_AFTER_SECONDS)
+        and job["waiting_seconds"] > STALLED_AFTER_SECONDS
+    )
+
+    return {
+        "status": job["status"],
+        "progress": job["progress"],
+        "progress_pct": job["progress_pct"],
+        "waiting_seconds": job["waiting_seconds"],
+        "stalled": stalled,
+        "error": job["error"],
+        "slug": artist["slug"] if artist else None,
+        "done": bool(artist) or job["status"] == "done",
+    }
+
+
+@router.get("/api/pending/{request_id}")
+def pending_status(request_id: str) -> dict[str, Any]:
+    """Polled by the status page.
+
+    Keyed on the request id, not a slug: no artist row exists until the worker
+    mints one, which is the whole reason the slug is trustworthy.
+    """
+    try:
+        uuid.UUID(request_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="No such request") from None
+
+    status = build_status(request_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail="No such request")
+    return status
 
 
 @router.get("/health", response_class=PlainTextResponse)

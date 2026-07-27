@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from r3 import db, diagnostics
-from r3.routes.api import MAX_QUERY_LENGTH, run_search
+from r3.routes.api import MAX_QUERY_LENGTH, build_status, run_search
 
 log = logging.getLogger(__name__)
 
@@ -211,7 +211,20 @@ def pending(request: Request, request_id: str):
     if artist:
         return RedirectResponse(f"/artist/{artist['slug']}", status_code=303)
 
-    return templates.TemplateResponse(request, "pending.html", {"job": job})
+    status = build_status(request_id)
+    if status and status["stalled"]:
+        # The page tells the visitor only what they can act on. The cause, and
+        # the fix, belong here — where whoever runs this will see them.
+        log.warning(
+            "build %s has waited %ss with no worker activity — is the worker "
+            "running? (RUN_WORKER=true python scripts/worker.py)",
+            request_id,
+            status["waiting_seconds"],
+        )
+
+    return templates.TemplateResponse(
+        request, "pending.html", {"job": job, "status": status}
+    )
 
 
 @router.get("/artist/{slug}", response_class=HTMLResponse)
