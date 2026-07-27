@@ -500,7 +500,10 @@ def fetch_catalogue(mbid: str) -> FetchedCatalogue:
         log.warning("work browse failed: %s", exc)
         catalogue.errors.append(f"works: {exc}")
 
-    catalogue.requests = mb.reset_request_count()
+    # Peek rather than reset: step 5 (contributor resolution) runs after this
+    # and its requests belong in the same total. Resetting here reported 57 for
+    # a Björk build that actually cost 140+.
+    catalogue.requests = mb.request_count
     log.info(
         "%d recordings, %d works in %d requests (%s)",
         len(catalogue.recordings),
@@ -734,4 +737,7 @@ def build(mbid: str) -> str:
     catalogue = fetch_catalogue(mbid)
     songs = group_songs(catalogue.recordings, catalogue.works, catalogue.albums)
     contributors = resolve_contributors(songs)
-    return persist(catalogue, songs, contributors)
+    artist_id = persist(catalogue, songs, contributors)
+    # Now that step 5 is done, this is the real cost of the build.
+    catalogue.requests = mb.request_count
+    return artist_id
