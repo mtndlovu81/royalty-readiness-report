@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}{{ query }} — Royalty Readiness Report{% endblock %}
+{% block description %}Search results for {{ query }}.{% endblock %}
+
+{% block content %}
+{% include "partials/search_form.html" %}
+
+{% if not query %}
+  <p class="empty">Enter an artist name to begin.</p>
+
+{% elif source == "unavailable" %}
+  {# Upstream is down and we hold nothing locally. Degrade, don't error. #}
+  <div class="notice notice-warn">
+    <h2>We can't reach our sources right now</h2>
+    <p>
+      Nothing we hold matches “{{ query }}”, and the database we check against
+      isn't responding at the moment. This is usually temporary.
+    </p>
+    <p>Try again in a few minutes, or check the spelling.</p>
+  </div>
+
+{% elif not results %}
+  <div class="notice">
+    <h2>Nothing found for “{{ query }}”</h2>
+    <p>
+      No artist by that name in our sources. That may be a spelling difference,
+      a name that's credited differently, or simply an artist nobody has added
+      yet.
+    </p>
+    {% block request_artist %}{# the request form arrives in M4-C #}{% endblock %}
+  </div>
+
+{% else %}
+  <div class="results-head">
+    <p class="results-count">
+      {% if source == "local" %}
+        {{ results | length }} profile{{ "" if results | length == 1 else "s" }}
+        matching “{{ query }}”
+      {% else %}
+        {{ results | length }} possible match{{ "" if results | length == 1 else "es" }}
+        for “{{ query }}” — not in our catalogue yet
+      {% endif %}
+    </p>
+  </div>
+
+  <ul class="results">
+    {% for artist in results %}
+      <li>
+      {% if artist.in_catalogue %}
+        <a class="result" href="/artist/{{ artist.slug }}">
+          <span class="result-name">{{ artist.name }}</span>
+          <span class="result-meta">
+            {% if artist.disambiguation %}{{ artist.disambiguation }}{% endif %}
+            {% if artist.disambiguation and artist.country %}<span class="sep">·</span>{% endif %}
+            {% if artist.country %}{{ artist.country }}{% endif %}
+          </span>
+          {% if artist.status == "building" %}<span class="badge">Building…</span>{% endif %}
+        </a>
+      {% else %}
+        <div class="result is-unbuilt">
+          <span class="result-name">{{ artist.name }}</span>
+          <span class="result-meta">
+            {% if artist.disambiguation %}{{ artist.disambiguation }}<span class="sep">·</span>{% endif %}
+            {% if artist.type %}{{ artist.type }}{% endif %}
+            {% if artist.country %}<span class="sep">·</span>{{ artist.country }}{% endif %}
+            {% if artist.began %}<span class="sep">·</span>from {{ artist.began[:4] }}{% endif %}
+          </span>
+          <span class="badge">Not in our catalogue</span>
+        </div>
+      {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+
+  {% if source != "local" %}
+    <p class="unverified" style="margin-top:1.25rem">
+      These come from our sources but haven't been checked yet.
+    </p>
+  {% endif %}
+{% endif %}
+{% endblock %}

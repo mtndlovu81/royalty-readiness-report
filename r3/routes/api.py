@@ -141,9 +141,8 @@ def _search_upstream(term: str) -> list[dict[str, Any]]:
     return candidates
 
 
-@router.get("/api/search")
-def search(q: str = Query(default="", max_length=MAX_QUERY_LENGTH)) -> dict[str, Any]:
-    """Find an artist.
+def run_search(q: str) -> dict[str, Any]:
+    """Find an artist. Shared by the JSON and HTML routes.
 
     `source` tells the caller what it is looking at:
       local        — profiles we hold, ready to open
@@ -216,6 +215,12 @@ def search(q: str = Query(default="", max_length=MAX_QUERY_LENGTH)) -> dict[str,
             "cached": False,
             "upstream_available": False,
         }
+
+
+@router.get("/api/search")
+def search(q: str = Query(default="", max_length=MAX_QUERY_LENGTH)) -> dict[str, Any]:
+    """Live search, for the JSON client."""
+    return run_search(q)
 
 
 @router.get("/health", response_class=PlainTextResponse)

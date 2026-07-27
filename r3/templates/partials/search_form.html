@@ -1,0 +1,16 @@
+{# One box, one job. Shared by the home page and the results page. #}
+<form class="search-form" action="/search" method="get" role="search">
+  <label for="q">{{ label | default("Artist name") }}</label>
+  <input
+    class="search-input"
+    type="search"
+    id="q"
+    name="q"
+    value="{{ query | default('') }}"
+    maxlength="120"
+    placeholder="Björk, Portishead, your own name…"
+    autocomplete="off"
+    {% if autofocus | default(false) %}autofocus{% endif %}
+    required>
+  <button class="btn" type="submit">Search</button>
+</form>

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Royalty Readiness Report — check your songs' identifiers{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <h1>Which of your songs are missing the IDs royalties depend on?</h1>
+
+  <p class="lede">
+    Search your name to see which songs are missing a streaming ID or a
+    publishing ID — the identifiers streaming services and collection societies
+    use to route money to you. Unmatched royalties are typically reallocated
+    after two to three years.
+  </p>
+
+  {% include "partials/search_form.html" %}
+</div>
+
+<div class="notice">
+  <h2>What this can and can't tell you</h2>
+  <p>
+    We report what we found in public sources. An empty field there usually
+    means nobody has entered it yet, not that the identifier doesn't exist — so
+    a flag here is a prompt to check, never proof that something is wrong.
+  </p>
+  <p class="unverified">
+    Nothing shown has been independently verified.
+  </p>
+</div>
+{% endblock %}

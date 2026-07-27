@@ -40,6 +40,10 @@ WRITE = Rule("write", capacity=5, per_seconds=60.0)
 RULES: tuple[tuple[str, str | None, Rule], ...] = (
     # (path prefix, method or None for any, rule)
     ("/api/search", "GET", SEARCH),
+    # The HTML results page runs the same search, upstream fallback included,
+    # so it needs the same ceiling. Limiting only the JSON route would leave
+    # the budget wide open to anyone using a browser.
+    ("/search", "GET", SEARCH),
     ("/api/request-artist", "POST", WRITE),
     ("/api/report", "POST", WRITE),
 )

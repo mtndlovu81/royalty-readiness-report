@@ -1,0 +1,59 @@
+{#
+  Page shell. Every page sets its own title and description so links preview
+  correctly and pages are crawlable.
+
+  Autoescaping is on and stays on. Never use |safe on anything that came from a
+  user or from MusicBrainz.
+#}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>{% block title %}Royalty Readiness Report{% endblock %}</title>
+<meta name="description" content="{% block description %}Find out which of your songs are missing the identifiers royalty payments depend on.{% endblock %}">
+{% block robots %}{% endblock %}
+
+<meta property="og:site_name" content="Royalty Readiness Report">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ self.title() }}">
+<meta property="og:description" content="{{ self.description() }}">
+<meta name="twitter:card" content="summary">
+
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="/">Royalty Readiness Report<span class="mark"> r³</span></a>
+    <span class="tagline">Which of your songs are missing the IDs royalties depend on</span>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>
+      Data from <a href="https://musicbrainz.org" rel="noopener">MusicBrainz</a>,
+      a volunteer-edited database.
+    </p>
+    <p>
+      A missing entry here usually means nobody has added it yet — not that the
+      identifier doesn't exist. Nothing shown has been independently verified.
+    </p>
+  </div>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

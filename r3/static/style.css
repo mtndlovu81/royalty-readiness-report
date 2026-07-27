@@ -1,0 +1,274 @@
+/* Royalty Readiness Report
+ *
+ * Plain CSS, custom properties, no framework and no build step — the palette
+ * is ten variables and a bundler would be the largest dependency here.
+ *
+ * Two rules from DESIGN.md §12 govern everything below:
+ *
+ *   1. Status colours are lightened and desaturated for a near-black ground.
+ *      Saturated red on #0B0D10 vibrates and fails contrast. Every status is
+ *      icon + colour + text, never colour alone — for colourblind readers, and
+ *      because a screenshot has to survive being sent in a DM.
+ *
+ *   2. Blue is reserved for interaction: links, buttons, focus rings. Never
+ *      decorative, and never inside a status area. If the accent shows up next
+ *      to red and amber, it stops reading as "clickable" and the signal is lost.
+ */
+
+:root {
+  --bg:         #0B0D10;
+  --surface:    #14171C;
+  --surface-2:  #1B1F26;
+  --border:     #232830;
+  --text:       #FFFFFF;
+  --text-dim:   #9BA3AF;
+  --text-muted: #6B7280;
+  --accent:     #3B82F6;
+  --ok:         #34D399;
+  --warn:       #FBBF24;
+  --crit:       #F87171;
+
+  --measure: 68rem;
+  --radius: 8px;
+  --gap: 1rem;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1, h2, h3 { line-height: 1.2; font-weight: 600; margin: 0 0 0.5em; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+/* One visible focus style everywhere. Never removed — keyboard users need it
+ * and it is the only place the accent is allowed to appear unprompted. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0.6rem 1rem;
+  z-index: 10;
+}
+.skip-link:focus { left: 0; }
+
+.wrap {
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+/* --- header / footer --------------------------------------------------- */
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  padding-block: 1rem;
+}
+
+.site-header .wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.wordmark {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-decoration: none;
+}
+.wordmark:hover { text-decoration: underline; }
+
+.wordmark .mark { color: var(--accent); }
+
+.tagline {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  margin-top: 4rem;
+  padding-block: 1.5rem 3rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.site-footer p { margin: 0 0 0.4rem; }
+
+main { padding-block: 2rem; }
+
+/* --- search ------------------------------------------------------------- */
+
+/* Deliberately no chrome: one box, one job. */
+.hero {
+  padding-block: clamp(2rem, 9vw, 5rem) 2rem;
+  max-width: 42rem;
+}
+
+.hero h1 {
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  letter-spacing: -0.02em;
+}
+
+.hero .lede {
+  color: var(--text-dim);
+  font-size: 1.05rem;
+  margin: 0 0 2rem;
+}
+
+.search-form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.search-form label {
+  flex: 0 0 100%;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 0.35rem;
+}
+
+.search-input {
+  flex: 1 1 18rem;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  padding: 0.7rem 0.9rem;
+}
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:hover { border-color: var(--text-muted); }
+
+.btn {
+  background: var(--accent);
+  color: #06121F;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 600;
+  padding: 0.7rem 1.2rem;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+
+.btn-quiet {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--border);
+}
+.btn-quiet:hover { border-color: var(--accent); filter: none; }
+
+/* --- results ------------------------------------------------------------ */
+
+.results-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--gap);
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.results-count { color: var(--text-dim); font-size: 0.9rem; margin: 0; }
+
+.results { list-style: none; margin: 0; padding: 0; }
+
+.results li + li { margin-top: 0.5rem; }
+
+.result {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+a.result:hover { border-color: var(--accent); background: var(--surface-2); }
+
+.result-name { font-weight: 600; font-size: 1.05rem; }
+
+/* Disambiguation is the whole point of the results list — keep it legible
+ * rather than shrinking it into decoration. */
+.result-meta { color: var(--text-dim); font-size: 0.9rem; }
+.result-meta .sep { color: var(--text-muted); padding-inline: 0.35rem; }
+
+.result-note {
+  flex: 0 0 100%;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Not a status — a neutral badge. Deliberately not the accent, which would
+ * read as clickable, and not a status colour, which would read as a verdict. */
+.badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 0.1rem 0.6rem;
+  white-space: nowrap;
+}
+
+.result.is-unbuilt { opacity: 0.92; }
+
+/* --- notices ------------------------------------------------------------ */
+
+.notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  margin-block: 1.5rem;
+}
+.notice h2 { font-size: 1.05rem; }
+.notice p { color: var(--text-dim); margin: 0 0 0.6rem; }
+.notice p:last-child { margin-bottom: 0; }
+
+.notice-warn { border-left-color: var(--warn); }
+
+/* Every profile carries this. All v1 data is third-party and unconfirmed. */
+.unverified {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.empty {
+  color: var(--text-dim);
+  padding-block: 2rem;
+}
+
+.not-on-record { color: var(--text-muted); }
+
+.mono { font-family: var(--mono); font-size: 0.9em; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
