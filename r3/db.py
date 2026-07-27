@@ -18,13 +18,21 @@ from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
-from psycopg_pool import ConnectionPool
+from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 
 from r3 import config
 
 log = logging.getLogger(__name__)
 
 Params = Sequence[Any] | dict[str, Any] | None
+
+# How long a request waits for a connection before giving up.
+CONNECT_TIMEOUT_SECONDS = 5.0
+
+# Everything that means "the database isn't answering". `PoolTimeout` is not an
+# `OperationalError` — it comes from psycopg_pool — so anything catching only
+# the latter misses the case where Postgres is unreachable entirely.
+UNAVAILABLE = (psycopg.OperationalError, PoolTimeout, PoolClosed)
 
 _pool: ConnectionPool | None = None
 _pool_lock = threading.Lock()
@@ -41,6 +49,11 @@ def pool() -> ConnectionPool:
                     min_size=1,
                     max_size=10,
                     kwargs={"row_factory": dict_row},
+                    # Fail fast when Postgres is unreachable. The default is 30
+                    # seconds, which means a visitor stares at a blank tab for
+                    # half a minute before getting an error — worse than being
+                    # told promptly that something is wrong.
+                    timeout=CONNECT_TIMEOUT_SECONDS,
                     open=False,
                 )
                 p.open()
@@ -122,6 +135,6 @@ def healthy() -> bool:
     """True if the database answers. Used by the load balancer health check."""
     try:
         return query_value("SELECT 1") == 1
-    except psycopg.Error:
+    except UNAVAILABLE + (psycopg.Error,):
         log.exception("database health check failed")
         return False

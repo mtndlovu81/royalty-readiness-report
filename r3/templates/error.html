@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_title }} — Royalty Readiness Report{% endblock %}
+{# Error pages have nothing worth indexing. #}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block back %}<a class="back-link" href="/">← New search</a>{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <p class="error-code">{{ status_code }}</p>
+  <h1>{{ error_title }}</h1>
+  <p class="lede">{{ error_body }}</p>
+
+  {% if error_detail %}
+    {# Only ever a message we wrote deliberately — never an exception string. #}
+    <p class="error-detail">{{ error_detail }}</p>
+  {% endif %}
+
+  {# Always a way forward. An error page that only apologises leaves someone
+     stuck on it. #}
+  <div class="error-actions">
+    {% include "partials/search_form.html" %}
+  </div>
+</div>
+{% endblock %}

@@ -20,6 +20,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from r3 import config
+from r3.errors import error_context, wants_json
 
 log = logging.getLogger(__name__)
 
@@ -175,15 +176,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if not allowed:
             log.info("rate limited %s on %s (%s)", who, request.url.path, rule.name)
-            return JSONResponse(
+            headers = {"Retry-After": str(max(1, round(retry_after)))}
+
+            if wants_json(request):
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": "rate_limited",
+                        "message": (
+                            "Too many requests. Please wait a moment and try again."
+                        ),
+                    },
+                    headers=headers,
+                )
+
+            # A browser tripping the limit got raw JSON before this. Imported
+            # here rather than at module scope: `pages` imports the routes,
+            # which would make this a cycle.
+            from r3.routes.pages import templates
+
+            return templates.TemplateResponse(
+                request,
+                "error.html",
+                error_context(429),
                 status_code=429,
-                content={
-                    "error": "rate_limited",
-                    "message": (
-                        "Too many requests. Please wait a moment and try again."
-                    ),
-                },
-                headers={"Retry-After": str(max(1, round(retry_after)))},
+                headers=headers,
             )
 
         return await call_next(request)

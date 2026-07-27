@@ -505,6 +505,27 @@ tr[hidden] { display: none !important; }
   padding-left: 0.6rem;
 }
 
+/* --- error pages -------------------------------------------------------- */
+
+/* Present but recessive: useful when reporting a problem, not the headline. */
+.error-code {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  margin: 0 0 0.4rem;
+  letter-spacing: 0.08em;
+}
+
+.error-detail {
+  color: var(--text-dim);
+  border-left: 3px solid var(--border);
+  padding-left: 0.9rem;
+  margin: 0 0 1.5rem;
+  max-width: 52ch;
+}
+
+.error-actions { margin-top: 2rem; }
+
 /* --- forms -------------------------------------------------------------- */
 
 .request-form {
