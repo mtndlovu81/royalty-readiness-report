@@ -109,6 +109,9 @@ class Song:
     iswc: str | None
     versions: list[Recording]
     credits: list[Credit] = field(default_factory=list)
+    # DESIGN.md §6: appears on at least one release-group with no secondary
+    # type. Only the primary catalogue feeds the headline count.
+    is_primary_catalogue: bool = True
 
     @property
     def primary(self) -> Recording:
@@ -364,6 +367,8 @@ def group_songs(
     """
     works_by_mbid = {w.work_mbid: w for w in works}
     release_dates = {a.release_group_mbid: a.first_released for a in albums}
+    # A release-group with no secondary type is a studio album, EP, or single.
+    studio_groups = {a.release_group_mbid for a in albums if not a.secondary_types}
 
     grouped: dict[str, list[Recording]] = {}
     stubs: dict[str, dict[str, Any]] = {}
@@ -409,8 +414,23 @@ def group_songs(
         else:
             title, work_mbid, iswc, credits = versions[0].title, None, None, []
 
+        # Decided per song across every group it appears on, not per release: a
+        # studio song later included on three compilations is still primary.
+        # Classifying releases would demote it the moment a greatest-hits
+        # package appeared, which is backwards — wider exposure, not less.
+        is_primary_catalogue = any(
+            v.release_group_mbid in studio_groups for v in versions
+        )
+
         songs.append(
-            Song(title=title, work_mbid=work_mbid, iswc=iswc, versions=versions, credits=credits)
+            Song(
+                title=title,
+                work_mbid=work_mbid,
+                iswc=iswc,
+                versions=versions,
+                credits=credits,
+                is_primary_catalogue=is_primary_catalogue,
+            )
         )
 
     songs.sort(key=lambda s: (sort_key(s.primary), s.title))
@@ -604,12 +624,12 @@ def persist(catalogue: FetchedCatalogue, songs: list[Song],
                 cur.execute(
                     """
                     INSERT INTO albums (artist_id, slug, title, release_group_mbid,
-                                        first_released)
-                    VALUES (%s, %s, %s, %s, %s)
+                                        secondary_types, first_released)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
                     (artist_id, slug, album.title, album.release_group_mbid,
-                     _as_date(album.first_released)),
+                     album.secondary_types, _as_date(album.first_released)),
                 )
                 album_ids[album.release_group_mbid] = cur.fetchone()["id"]
 
@@ -647,12 +667,14 @@ def persist(catalogue: FetchedCatalogue, songs: list[Song],
 
                 cur.execute(
                     """
-                    INSERT INTO songs (artist_id, slug, title, iswc, work_mbid)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO songs (artist_id, slug, title, iswc, work_mbid,
+                                       is_primary_catalogue)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (work_mbid) DO NOTHING
                     RETURNING id
                     """,
-                    (artist_id, slug, song.title, song.iswc, song.work_mbid),
+                    (artist_id, slug, song.title, song.iswc, song.work_mbid,
+                     song.is_primary_catalogue),
                 )
                 inserted = cur.fetchone()
                 if inserted is None:

@@ -51,6 +51,13 @@ CREATE TABLE songs (
   title       text NOT NULL,
   iswc        text,
   work_mbid   text UNIQUE,
+  is_primary_catalogue boolean NOT NULL DEFAULT true,
+    -- true when the song appears on at least one release-group with no
+    -- secondary type. Only primary songs feed the headline count; secondary
+    -- ones are collapsed below the table, not hidden. See DESIGN.md §6.
+    -- Derived at build time, not query time: the classification depends on
+    -- every release-group a song appears on, which is a join the read path
+    -- shouldn't repeat on every request.
   source      text NOT NULL DEFAULT 'musicbrainz',
   verified_at timestamptz,
   UNIQUE (artist_id, slug)
@@ -98,6 +105,10 @@ CREATE TABLE albums (
   slug               text NOT NULL,
   title              text NOT NULL,
   release_group_mbid text UNIQUE,
+  secondary_types    text[] NOT NULL DEFAULT '{}',
+    -- Live | Compilation | Soundtrack | Remix | DJ-mix | Demo | Interview | …
+    -- Empty means a studio album, EP, or single — the primary catalogue.
+    -- Returned by the release browse already, so it costs no extra requests.
   first_released     date,
   UNIQUE (artist_id, slug)
 );
