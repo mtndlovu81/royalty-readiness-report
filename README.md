@@ -6,6 +6,8 @@ the identifiers that royalty payments depend on.
 Search a name, open a profile, and every song is checked against the three
 codes the money actually moves on. Nothing to install, nothing to sign up for.
 
+[Demo](https://www.loom.com/share/8d719dae768c431f97cde3ae31cfe06d) - https://www.loom.com/share/8d719dae768c431f97cde3ae31cfe06d
+
 ---
 
 ## The problem
