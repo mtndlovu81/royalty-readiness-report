@@ -1,0 +1,26 @@
+# Runs the build worker periodically. **Web01 only** — see r3-worker.service.
+#
+# Every minute is frequent enough that someone who asks for a profile doesn't
+# wait long, and the run is a no-op when the queue is empty.
+
+[Unit]
+Description=Royalty Readiness Report — run the build worker (Web01 only)
+Requires=r3-worker.service
+
+[Timer]
+OnBootSec=2min
+
+# Overlap is prevented by this line together with Type=oneshot in the service:
+# the countdown starts when the previous run *finishes*, not when it started, so
+# a build that takes twenty minutes simply delays the next check. systemd will
+# not start a second instance of a service that is already running. That matters
+# more here than anywhere else — two concurrent workers is exactly the thing the
+# single-process rate limiter cannot survive.
+OnUnitInactiveSec=1min
+
+# Timer precision only: systemd may fire up to this late in order to batch
+# wakeups. Nothing to do with overlap.
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

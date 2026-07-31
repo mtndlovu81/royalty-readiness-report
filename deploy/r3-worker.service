@@ -1,0 +1,41 @@
+# The build worker. **Web01 only.**
+#
+# ⚠ Do not install this on Web02. This process holds the token bucket that
+# keeps us to one request per second against MusicBrainz. A second worker
+# anywhere is a second bucket, twice the outbound rate, and a block that takes
+# the whole application down — not just the duplicate.
+#
+# `RUN_WORKER` in the environment file is a second line of defence: the worker
+# refuses to start unless it is true. Leave it false on Web02 so that even an
+# accidental install does nothing.
+#
+#   # on Web01 ONLY:
+#   sudo cp deploy/r3-worker.service deploy/r3-worker.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now r3-worker.timer
+
+[Unit]
+Description=Royalty Readiness Report — catalogue build worker (Web01 only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=r3
+Group=r3
+WorkingDirectory=/srv/r3
+EnvironmentFile=/srv/r3/.env
+
+# --once drains the queue and exits, which suits a timer. Run without it to
+# hold the process open and poll instead.
+ExecStart=/srv/r3/.venv/bin/python /srv/r3/scripts/worker.py --once
+
+# A large catalogue is minutes of deliberately slow requests; don't kill it
+# mid-build. A partial build persists what it got, but finishing is better.
+TimeoutStartSec=1800
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/r3

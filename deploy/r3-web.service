@@ -1,0 +1,63 @@
+# The web service. Install on BOTH Web01 and Web02 — they are identical and
+# interchangeable, because no request ever holds state.
+#
+# Installed by deploy/setup-web.sh; the manual equivalent is:
+#   sudo cp deploy/r3-web.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now r3-web
+#
+# The load balancer is HAProxy on Lb01 — a separate machine reaching this over
+# the private network. There is no local reverse proxy on the web servers, so
+# this process is itself the thing HAProxy connects to.
+
+[Unit]
+Description=Royalty Readiness Report — web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=r3
+Group=r3
+WorkingDirectory=/srv/r3
+
+# TRUST_PROXY_HEADERS must be true here: behind the load balancer every request
+# arrives from Lb01, so without it the rate limiter puts the entire internet in
+# one bucket and throttles the whole site collectively.
+EnvironmentFile=/srv/r3/.env
+
+ExecStart=/srv/r3/.venv/bin/uvicorn r3.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 1 \
+    --proxy-headers \
+    --forwarded-allow-ips='10.227.9.215'
+
+# --host 0.0.0.0
+#   HAProxy is on Lb01, not here. On loopback the backend is unreachable from
+#   another machine: every health check fails, HAProxy marks both servers down,
+#   and the site returns 503 to everyone.
+#
+# --workers 1
+#   Each uvicorn worker is its own process holding its own rate-limit token
+#   bucket, and a search that misses locally makes an upstream call. Two workers
+#   per server would be four buckets across the pair — four requests a second to
+#   a source that allows one. BUILD.md §3 specifies a single process.
+#
+# --forwarded-allow-ips
+#   Only Lb01's forwarded headers are honoured. Trusting any sender was
+#   defensible while this was bound to loopback and nothing else could reach it;
+#   on 0.0.0.0 anyone on the private network could otherwise forge
+#   X-Forwarded-For and hand themselves a fresh rate-limit identity per request.
+
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/r3
+
+[Install]
+WantedBy=multi-user.target
